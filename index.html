@@ -7,6 +7,7 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <title>生产统计系统</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <style>
         * {
             margin: 0;
@@ -72,6 +73,27 @@
         
         #offline-status.show {
             transform: translateY(0);
+        }
+        
+        /* 通知提示样式 */
+        #notification {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: #4CAF50;
+            color: white;
+            padding: 15px 20px;
+            border-radius: 4px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            z-index: 1000;
+            transform: translateY(100px);
+            opacity: 0;
+            transition: all 0.3s ease;
+        }
+        
+        #notification.show {
+            transform: translateY(0);
+            opacity: 1;
         }
         
         /* 主容器布局 */
@@ -194,6 +216,16 @@
             border-color: var(--primary-color);
             outline: none;
             background: #fff;
+        }
+        
+        /* 时间输入样式 */
+        .time-input-group {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .time-input-group .form-control {
+            flex: 1;
         }
         
         /* 按钮样式 */
@@ -345,10 +377,50 @@
             display: none;
         }
         
-        .detail-row td {
-            padding: 8px 8px 8px 20px;
-            background-color: #fafafa;
+        /* 详细记录表格样式 */
+        .detail-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+        
+        .detail-table th {
+            background-color: #f5f5f5;
+            padding: 8px 12px;
+            text-align: left;
+            font-weight: 500;
             font-size: 0.85rem;
+            color: #666;
+        }
+        
+        .detail-table td {
+            padding: 10px 12px;
+            border-bottom: 1px solid #eee;
+            vertical-align: middle;
+        }
+        
+        .detail-table tr:last-child td {
+            border-bottom: none;
+        }
+        
+        .detail-actions {
+            display: flex;
+            justify-content: flex-end;
+        }
+        
+        .detail-delete-btn {
+            background: none;
+            border: none;
+            color: #f44336;
+            cursor: pointer;
+            font-size: 0.9rem;
+            padding: 5px;
+            opacity: 0.7;
+            transition: opacity 0.2s;
+        }
+        
+        .detail-delete-btn:hover {
+            opacity: 1;
         }
         
         .actions {
@@ -509,6 +581,9 @@
         <i class="fas fa-wifi-slash"></i> 当前处于离线状态，数据将在恢复网络后同步
     </div>
 
+    <!-- 通知提示 -->
+    <div id="notification"></div>
+
     <div class="main-container">
         <!-- PC端侧边导航 -->
         <div class="side-nav">
@@ -544,6 +619,14 @@
                             <div class="form-group">
                                 <label for="workDate">生产日期</label>
                                 <input type="date" id="workDate" class="form-control" required>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="workTime">生产时间</label>
+                                <div class="time-input-group">
+                                    <input type="time" id="workTime" class="form-control" value="" required>
+                                    <button type="button" id="setCurrentTimeBtn" class="btn btn-sm btn-outline">当前时间</button>
+                                </div>
                             </div>
                             
                             <div class="form-group">
@@ -599,7 +682,7 @@
                 <div class="app-header">
                     <h1><i class="fas fa-history"></i> 生产记录</h1>
                     <div class="header-actions">
-                        <button id="exportHistoryBtn" class="btn btn-sm btn-outline"><i class="fas fa-file-export"></i></button>
+                        <button id="exportHistoryBtn" class="btn btn-sm btn-outline"><i class="fas fa-file-excel"></i> 导出</button>
                     </div>
                 </div>
                 
@@ -631,7 +714,6 @@
                     <div class="backup-section">
                         <div class="backup-actions">
                             <button id="exportBtn" class="btn btn-sm"><i class="fas fa-file-excel"></i> 导出数据</button>
-                            <button id="importBtn" class="btn btn-sm"><i class="fas fa-file-import"></i> 导入数据</button>
                             <button id="clearBtn" class="btn btn-sm" style="background: #ffebee; color: #d32f2f;">
                                 <i class="fas fa-trash-alt"></i> 清空数据
                             </button>
@@ -690,9 +772,13 @@
             // 初始化数据
             initData();
             
-            // 设置当前日期
+            // 设置当前日期和时间
             const today = new Date().toISOString().split('T')[0];
             document.getElementById('workDate').value = today;
+            setCurrentTime();
+            
+            // 设置当前时间按钮
+            document.getElementById('setCurrentTimeBtn').addEventListener('click', setCurrentTime);
             
             // 页面导航
             setupNavigation();
@@ -711,16 +797,34 @@
             // 保存设置
             document.getElementById('saveSettingsBtn').addEventListener('click', saveSettings);
             
-            // 数据导出导入
+            // 数据导出和清空
             document.getElementById('exportBtn').addEventListener('click', exportData);
-            document.getElementById('importBtn').addEventListener('click', importData);
             document.getElementById('clearBtn').addEventListener('click', clearData);
-            document.getElementById('exportHistoryBtn').addEventListener('click', exportHistory);
+            document.getElementById('exportHistoryBtn').addEventListener('click', exportHistoryToExcel);
             
             // 初始加载数据
             updateDailyStats();
             loadHistory();
         });
+        
+        // 设置当前时间
+        function setCurrentTime() {
+            const now = new Date();
+            const hours = String(now.getHours()).padStart(2, '0');
+            const minutes = String(now.getMinutes()).padStart(2, '0');
+            document.getElementById('workTime').value = `${hours}:${minutes}`;
+        }
+        
+        // 显示通知
+        function showNotification(message) {
+            const notification = document.getElementById('notification');
+            notification.textContent = message;
+            notification.classList.add('show');
+            
+            setTimeout(() => {
+                notification.classList.remove('show');
+            }, 1000);
+        }
         
         // 更新网络状态显示
         function updateOnlineStatus() {
@@ -805,22 +909,31 @@
         // 保存生产记录
         function saveWorkRecord() {
             const date = document.getElementById('workDate').value;
+            const time = document.getElementById('workTime').value;
             const content = document.getElementById('workContent').value;
             const output = parseInt(document.getElementById('workOutput').value);
             
-            if (!date || !content || isNaN(output)) {
-                alert('请填写完整的生产信息');
+            if (!date || !time || !content || isNaN(output)) {
+                showNotification('请填写完整的生产信息');
                 return;
             }
             
             const data = getData();
             
+            // 创建时间戳
+            const [hours, minutes] = time.split(':');
+            const recordDate = new Date(date);
+            recordDate.setHours(parseInt(hours));
+            recordDate.setMinutes(parseInt(minutes));
+            
             // 添加新记录
             data.records.push({
                 date,
+                time,
                 content,
                 output,
-                timestamp: new Date().getTime()
+                timestamp: recordDate.getTime(),
+                id: Date.now() // 为每条记录添加唯一ID
             });
             
             saveData(data);
@@ -828,11 +941,12 @@
             // 重置表单
             document.getElementById('workContent').value = '';
             document.getElementById('workOutput').value = '';
+            setCurrentTime();
             
             // 更新统计
             updateDailyStats();
             
-            alert('生产记录已保存');
+            showNotification('生产记录已保存');
         }
         
         // 更新当日统计
@@ -874,6 +988,10 @@
             
             // 更新累计产量显示
             document.getElementById('completed').value = totalOutput.toLocaleString();
+            
+            // 更新设置显示
+            document.getElementById('dailyTargetDisplay').textContent = dailyTarget.toLocaleString();
+            document.getElementById('dailyHoursDisplay').textContent = data.settings.dailyHours;
         }
         
         // 加载历史记录
@@ -897,6 +1015,9 @@
             // 填充表格
             sortedDates.forEach(date => {
                 const dateRecords = recordsByDate[date];
+                // 按时间排序
+                dateRecords.sort((a, b) => a.timestamp - b.timestamp);
+                
                 const totalOutput = dateRecords.reduce((sum, record) => sum + record.output, 0);
                 const dailyTarget = data.settings.dailyTarget;
                 const difference = totalOutput - dailyTarget;
@@ -924,15 +1045,38 @@
                 const detailCell = document.createElement('td');
                 detailCell.colSpan = 4;
                 
-                let detailsHtml = '<div style="margin-bottom: 10px;"><strong>详细记录:</strong></div>';
+                let detailsHtml = `
+                    <table class="detail-table">
+                        <thead>
+                            <tr>
+                                <th>时间</th>
+                                <th>生产内容</th>
+                                <th>生产数量</th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                `;
+                
                 dateRecords.forEach(record => {
                     detailsHtml += `
-                        <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
-                            <span>${record.content}</span>
-                            <span>${record.output.toLocaleString()}</span>
-                        </div>
+                        <tr>
+                            <td>${record.time}</td>
+                            <td>${record.content}</td>
+                            <td>${record.output.toLocaleString()}</td>
+                            <td class="detail-actions">
+                                <button class="detail-delete-btn" data-id="${record.id}">
+                                    <i class="fas fa-trash-alt"></i> 删除
+                                </button>
+                            </td>
+                        </tr>
                     `;
                 });
+                
+                detailsHtml += `
+                        </tbody>
+                    </table>
+                `;
                 
                 detailCell.innerHTML = detailsHtml;
                 detailRow.appendChild(detailCell);
@@ -948,13 +1092,24 @@
                     }
                 });
                 
-                // 添加删除按钮事件
+                // 添加日期删除按钮事件
                 const deleteBtn = dateRow.querySelector('.action-btn.delete');
                 deleteBtn.addEventListener('click', function(e) {
                     e.stopPropagation();
                     if (confirm(`确定要删除 ${formatDate(date)} 的所有记录吗？`)) {
                         deleteRecordsByDate(date);
                     }
+                });
+                
+                // 添加单条记录删除按钮事件
+                detailRow.querySelectorAll('.detail-delete-btn').forEach(btn => {
+                    btn.addEventListener('click', function(e) {
+                        e.stopPropagation();
+                        const recordId = parseInt(this.getAttribute('data-id'));
+                        if (confirm('确定要删除这条记录吗？')) {
+                            deleteRecordById(recordId);
+                        }
+                    });
                 });
             });
             
@@ -973,6 +1128,29 @@
             }
         }
         
+        // 根据ID删除单条记录
+        function deleteRecordById(id) {
+            const data = getData();
+            const recordIndex = data.records.findIndex(record => record.id === id);
+            
+            if (recordIndex !== -1) {
+                const record = data.records[recordIndex];
+                data.records.splice(recordIndex, 1);
+                saveData(data);
+                
+                // 更新显示
+                loadHistory();
+                
+                // 如果是当天记录被删除，更新统计
+                const today = new Date().toISOString().split('T')[0];
+                if (record.date === today) {
+                    updateDailyStats();
+                }
+                
+                showNotification('记录已删除');
+            }
+        }
+        
         // 删除指定日期的所有记录
         function deleteRecordsByDate(date) {
             const data = getData();
@@ -985,6 +1163,8 @@
             if (date === today) {
                 updateDailyStats();
             }
+            
+            showNotification('记录已删除');
         }
         
         // 保存设置
@@ -993,12 +1173,12 @@
             const dailyHours = parseInt(document.getElementById('dailyHours').value);
             
             if (isNaN(dailyTarget)) {
-                alert('请输入有效的目标产量');
+                showNotification('请输入有效的目标产量');
                 return;
             }
             
             if (isNaN(dailyHours)) {
-                alert('请输入有效的工作时间');
+                showNotification('请输入有效的工作时间');
                 return;
             }
             
@@ -1014,81 +1194,11 @@
             // 更新统计
             updateDailyStats();
             
-            alert('设置已保存');
+            showNotification('设置已保存');
         }
         
-        // 导出数据
+        // 导出数据为Excel
         function exportData() {
-            const data = getData();
-            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-            const url = URL.createObjectURL(blob);
-            
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `生产统计_${new Date().toISOString().split('T')[0]}.json`;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
-        }
-        
-        // 导入数据
-        function importData() {
-            const input = document.createElement('input');
-            input.type = 'file';
-            input.accept = '.json';
-            
-            input.onchange = e => {
-                const file = e.target.files[0];
-                if (!file) return;
-                
-                const reader = new FileReader();
-                reader.onload = event => {
-                    try {
-                        const data = JSON.parse(event.target.result);
-                        
-                        // 验证数据格式
-                        if (!data.settings || !data.records) {
-                            throw new Error('文件格式不正确');
-                        }
-                        
-                        if (confirm('导入数据将覆盖当前所有记录，确定要继续吗？')) {
-                            saveData(data);
-                            alert('数据导入成功');
-                            
-                            // 刷新显示
-                            document.getElementById('dailyTarget').value = data.settings.dailyTarget;
-                            document.getElementById('dailyHours').value = data.settings.dailyHours;
-                            updateDailyStats();
-                            loadHistory();
-                        }
-                    } catch (error) {
-                        alert('导入失败: ' + error.message);
-                    }
-                };
-                reader.readAsText(file);
-            };
-            
-            input.click();
-        }
-        
-        // 清空数据
-        function clearData() {
-            if (confirm('确定要清空所有数据吗？此操作不可恢复！')) {
-                localStorage.removeItem('productionData');
-                initData();
-                alert('数据已清空');
-                
-                // 重置显示
-                document.getElementById('dailyTarget').value = 50000;
-                document.getElementById('dailyHours').value = 8;
-                updateDailyStats();
-                loadHistory();
-            }
-        }
-        
-        // 导出历史记录为CSV
-        function exportHistory() {
             const data = getData();
             const recordsByDate = {};
             
@@ -1100,37 +1210,60 @@
                 recordsByDate[record.date].push(record);
             });
             
-            // 生成CSV内容
-            let csvContent = "日期,生产内容,产量,累计产量,目标差异\n";
+            // 准备Excel数据
+            const excelData = [
+                ['日期', '时间', '生产内容', '产量', '累计产量', '目标差异']
+            ];
             
+            // 按日期排序
             Object.keys(recordsByDate).sort((a, b) => new Date(a) - new Date(b)).forEach(date => {
                 const dateRecords = recordsByDate[date];
+                // 按时间排序
+                dateRecords.sort((a, b) => a.timestamp - b.timestamp);
+                
                 const totalOutput = dateRecords.reduce((sum, record) => sum + record.output, 0);
                 const difference = totalOutput - data.settings.dailyTarget;
                 
                 dateRecords.forEach((record, index) => {
                     const row = [
                         index === 0 ? formatDate(date) : '',
+                        record.time,
                         record.content,
                         record.output,
                         index === 0 ? totalOutput : '',
                         index === 0 ? difference : ''
                     ];
-                    csvContent += row.join(',') + '\n';
+                    excelData.push(row);
                 });
             });
             
-            // 创建下载链接
-            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-            const url = URL.createObjectURL(blob);
+            // 创建工作簿
+            const wb = XLSX.utils.book_new();
+            const ws = XLSX.utils.aoa_to_sheet(excelData);
+            XLSX.utils.book_append_sheet(wb, ws, "生产记录");
             
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `生产记录_${new Date().toISOString().split('T')[0]}.csv`;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
+            // 导出Excel文件
+            XLSX.writeFile(wb, `生产统计_${new Date().toISOString().split('T')[0]}.xlsx`);
+        }
+        
+        // 导出历史记录为Excel
+        function exportHistoryToExcel() {
+            exportData(); // 复用相同的导出逻辑
+        }
+        
+        // 清空数据
+        function clearData() {
+            if (confirm('确定要清空所有数据吗？此操作不可恢复！')) {
+                localStorage.removeItem('productionData');
+                initData();
+                showNotification('数据已清空');
+                
+                // 重置显示
+                document.getElementById('dailyTarget').value = 50000;
+                document.getElementById('dailyHours').value = 8;
+                updateDailyStats();
+                loadHistory();
+            }
         }
         
         // 格式化日期显示
