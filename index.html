@@ -1,0 +1,1143 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>生产统计系统</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            -webkit-tap-highlight-color: transparent;
+        }
+        
+        :root {
+            --primary-color: #1a2a6c;
+            --secondary-color: #b21f1f;
+            --text-color: #333;
+            --light-text: #777;
+            --bg-color: #f5f5f9;
+            --card-bg: #ffffff;
+            --border-radius: 12px;
+            --box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+            --nav-height: 60px;
+            --side-nav-width: 80px;
+        }
+        
+        body {
+            background: var(--bg-color);
+            color: var(--text-color);
+            line-height: 1.5;
+            min-height: 100vh;
+            -webkit-text-size-adjust: 100%;
+            overflow-x: hidden;
+        }
+        
+        /* 启动画面 */
+        #splash-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+            transition: opacity 0.3s;
+        }
+        
+        /* 离线状态提示 */
+        #offline-status {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            background: #ff9800;
+            color: white;
+            text-align: center;
+            padding: 8px;
+            font-size: 0.85rem;
+            z-index: 1000;
+            transform: translateY(-100%);
+            transition: transform 0.3s;
+        }
+        
+        #offline-status.show {
+            transform: translateY(0);
+        }
+        
+        /* 主容器布局 */
+        .main-container {
+            display: flex;
+            min-height: 100vh;
+        }
+        
+        /* PC端侧边导航 */
+        .side-nav {
+            display: none; /* 默认隐藏 */
+            flex-direction: column;
+            position: fixed;
+            left: 0;
+            top: 0;
+            height: 100vh;
+            width: var(--side-nav-width);
+            background: white;
+            box-shadow: 2px 0 10px rgba(0,0,0,0.1);
+            z-index: 100;
+        }
+        
+        .side-nav-item {
+            padding: 20px 10px;
+            text-align: center;
+            color: var(--light-text);
+            transition: all 0.3s;
+            text-decoration: none;
+        }
+        
+        .side-nav-item.active {
+            color: var(--primary-color);
+            background: rgba(26, 42, 108, 0.1);
+        }
+        
+        .side-nav-item i {
+            font-size: 1.5rem;
+            margin-bottom: 5px;
+            display: block;
+        }
+        
+        .side-nav-item span {
+            font-size: 0.7rem;
+        }
+        
+        /* 应用内容区域 */
+        .app-content {
+            flex: 1;
+            padding: 15px;
+            transition: margin-left 0.3s;
+            min-height: 100vh;
+        }
+        
+        /* 顶部标题栏 */
+        .app-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px 0;
+            margin-bottom: 15px;
+            position: sticky;
+            top: 0;
+            background: var(--bg-color);
+            z-index: 10;
+        }
+        
+        .app-header h1 {
+            font-size: 1.5rem;
+            color: var(--primary-color);
+            font-weight: 600;
+        }
+        
+        /* 卡片样式 */
+        .card {
+            background: var(--card-bg);
+            border-radius: var(--border-radius);
+            box-shadow: var(--box-shadow);
+            padding: 18px;
+            margin-bottom: 15px;
+            transition: transform 0.2s;
+        }
+        
+        .card h2 {
+            color: var(--primary-color);
+            font-size: 1.2rem;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .card h2 i {
+            color: var(--secondary-color);
+        }
+        
+        /* 表单元素 */
+        .form-group {
+            margin-bottom: 15px;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 6px;
+            font-size: 0.9rem;
+            color: var(--text-color);
+            font-weight: 500;
+        }
+        
+        .form-control {
+            width: 100%;
+            padding: 12px 15px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            font-size: 1rem;
+            background: #f9f9f9;
+            -webkit-appearance: none;
+        }
+        
+        .form-control:focus {
+            border-color: var(--primary-color);
+            outline: none;
+            background: #fff;
+        }
+        
+        /* 按钮样式 */
+        .btn {
+            display: inline-block;
+            padding: 14px;
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 500;
+            text-align: center;
+            cursor: pointer;
+            width: 100%;
+            transition: all 0.2s;
+        }
+        
+        .btn-sm {
+            padding: 8px 12px;
+            font-size: 0.85rem;
+            width: auto;
+        }
+        
+        .btn-outline {
+            background: transparent;
+            border: 1px solid var(--primary-color);
+            color: var(--primary-color);
+        }
+        
+        /* 统计卡片 */
+        .stats-container {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+            margin-bottom: 15px;
+        }
+        
+        .stat-card {
+            background: var(--card-bg);
+            border-radius: var(--border-radius);
+            padding: 15px;
+            text-align: center;
+            box-shadow: var(--box-shadow);
+        }
+        
+        .stat-card i {
+            font-size: 1.8rem;
+            color: var(--primary-color);
+            margin-bottom: 10px;
+        }
+        
+        .stat-card h3 {
+            font-size: 1.4rem;
+            margin-bottom: 3px;
+            color: var(--secondary-color);
+        }
+        
+        .stat-card p {
+            color: var(--light-text);
+            font-size: 0.85rem;
+        }
+        
+        /* 进度条 */
+        .progress-container {
+            width: 100%;
+            background-color: #f1f1f1;
+            border-radius: 8px;
+            margin: 10px 0;
+            height: 16px;
+        }
+        
+        .progress-bar {
+            height: 100%;
+            border-radius: 8px;
+            background: linear-gradient(90deg, var(--primary-color), var(--secondary-color));
+            text-align: center;
+            line-height: 16px;
+            color: white;
+            font-size: 0.7rem;
+            transition: width 0.3s;
+        }
+        
+        /* 差异显示样式 */
+        .over-target {
+            color: #4CAF50;
+            font-weight: bold;
+        }
+        
+        .under-target {
+            color: #F44336;
+            font-weight: bold;
+        }
+        
+        .target-met {
+            color: #2196F3;
+            font-weight: bold;
+        }
+        
+        /* 历史记录表格 */
+        .work-history {
+            background: var(--card-bg);
+            border-radius: var(--border-radius);
+            padding: 15px;
+            box-shadow: var(--box-shadow);
+            margin-bottom: 20px;
+        }
+        
+        .history-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        
+        .history-header h2 {
+            font-size: 1.2rem;
+            color: var(--primary-color);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+        
+        th, td {
+            padding: 12px 8px;
+            text-align: left;
+            border-bottom: 1px solid #eee;
+        }
+        
+        th {
+            background-color: #f8f9fa;
+            color: var(--primary-color);
+            font-weight: 500;
+            font-size: 0.85rem;
+        }
+        
+        .date-row {
+            cursor: pointer;
+            background-color: #f8f9fa !important;
+        }
+        
+        .detail-row {
+            display: none;
+        }
+        
+        .detail-row td {
+            padding: 8px 8px 8px 20px;
+            background-color: #fafafa;
+            font-size: 0.85rem;
+        }
+        
+        .actions {
+            display: flex;
+            gap: 8px;
+        }
+        
+        .action-btn {
+            padding: 5px 8px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.8rem;
+        }
+        
+        .action-btn.delete {
+            background: #ffebee;
+            color: #d32f2f;
+        }
+        
+        /* 移动端底部导航栏 */
+        .bottom-nav {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: var(--nav-height);
+            background: white;
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.08);
+            z-index: 100;
+        }
+        
+        .nav-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: var(--light-text);
+            text-decoration: none;
+            font-size: 0.7rem;
+            padding: 8px;
+            flex: 1;
+            transition: all 0.2s;
+        }
+        
+        .nav-item i {
+            font-size: 1.2rem;
+            margin-bottom: 3px;
+        }
+        
+        .nav-item.active {
+            color: var(--primary-color);
+            transform: translateY(-2px);
+        }
+        
+        /* 页面切换动画 */
+        .page {
+            display: none;
+            animation: fadeIn 0.3s ease;
+        }
+        
+        .page.active {
+            display: block;
+        }
+        
+        /* 数据备份区域 */
+        .backup-section {
+            background: #f9f9f9;
+            border-radius: 8px;
+            padding: 12px;
+            margin-top: 15px;
+        }
+        
+        .backup-actions {
+            display: flex;
+            gap: 8px;
+            margin-top: 10px;
+            flex-wrap: wrap;
+        }
+        
+        /* 空状态 */
+        .empty-state {
+            text-align: center;
+            padding: 30px 0;
+            color: var(--light-text);
+        }
+        
+        .empty-state i {
+            font-size: 2.5rem;
+            color: #ddd;
+            margin-bottom: 15px;
+        }
+        
+        /* 动画 */
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+        
+        /* PC端布局 */
+        @media (min-width: 992px) {
+            .side-nav {
+                display: flex;
+            }
+            
+            .app-content {
+                margin-left: var(--side-nav-width);
+                padding-bottom: 0;
+            }
+            
+            .bottom-nav {
+                display: none;
+            }
+            
+            .dashboard {
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 30px;
+                margin-bottom: 30px;
+            }
+            
+            .stats-container {
+                grid-template-columns: repeat(4, 1fr);
+            }
+            
+            .work-history {
+                grid-column: span 2;
+            }
+        }
+        
+        /* 移动端布局 */
+        @media (max-width: 991px) {
+            .app-content {
+                padding-bottom: var(--nav-height);
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- 启动画面 -->
+    <div id="splash-screen">
+        <i class="fas fa-industry" style="font-size: 3rem; color: white;"></i>
+        <h1>生产统计系统</h1>
+        <p>加载中...</p>
+    </div>
+
+    <!-- 离线状态提示 -->
+    <div id="offline-status">
+        <i class="fas fa-wifi-slash"></i> 当前处于离线状态，数据将在恢复网络后同步
+    </div>
+
+    <div class="main-container">
+        <!-- PC端侧边导航 -->
+        <div class="side-nav">
+            <a href="#" class="side-nav-item active" data-page="home-page">
+                <i class="fas fa-home"></i>
+                <span>首页</span>
+            </a>
+            <a href="#" class="side-nav-item" data-page="history-page">
+                <i class="fas fa-history"></i>
+                <span>记录</span>
+            </a>
+            <a href="#" class="side-nav-item" data-page="settings-page">
+                <i class="fas fa-cog"></i>
+                <span>设置</span>
+            </a>
+        </div>
+
+        <!-- 应用内容区域 -->
+        <div class="app-content">
+            <!-- 首页 -->
+            <div id="home-page" class="page active">
+                <div class="app-header">
+                    <h1><i class="fas fa-industry"></i> 生产统计</h1>
+                    <div class="header-actions">
+                        <button id="refreshBtn" class="btn btn-sm btn-outline"><i class="fas fa-sync-alt"></i></button>
+                    </div>
+                </div>
+                
+                <div class="dashboard">
+                    <div class="card">
+                        <h2><i class="fas fa-plus-circle"></i> 新增记录</h2>
+                        <form id="workForm">
+                            <div class="form-group">
+                                <label for="workDate">生产日期</label>
+                                <input type="date" id="workDate" class="form-control" required>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="workContent">生产内容</label>
+                                <input type="text" id="workContent" class="form-control" placeholder="请输入生产内容" required>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="workOutput">生产产量</label>
+                                <input type="number" id="workOutput" class="form-control" placeholder="输入本次生产产量" min="0" required>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label>当日累计产量</label>
+                                <input type="text" id="completed" class="form-control" readonly>
+                                <div class="progress-container">
+                                    <div id="progressBar" class="progress-bar" style="width: 0%">0%</div>
+                                </div>
+                                <small id="completionStatus" class="target-met">今日进度: 0/50,000 (0%)</small>
+                            </div>
+                            
+                            <button type="submit" class="btn"><i class="fas fa-save"></i> 保存记录</button>
+                        </form>
+                    </div>
+                    
+                    <div class="stats-container">
+                        <div class="stat-card">
+                            <i class="fas fa-bullseye"></i>
+                            <h3 id="dailyTargetDisplay">50,000</h3>
+                            <p>目标产量</p>
+                        </div>
+                        <div class="stat-card">
+                            <i class="fas fa-clock"></i>
+                            <h3 id="dailyHoursDisplay">8</h3>
+                            <p>工作时间</p>
+                        </div>
+                        <div class="stat-card">
+                            <i class="fas fa-boxes"></i>
+                            <h3 id="totalOutput">0</h3>
+                            <p>今日产量</p>
+                        </div>
+                        <div class="stat-card">
+                            <i class="fas fa-balance-scale"></i>
+                            <h3 id="totalDifference">0</h3>
+                            <p>目标差异</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 历史记录页 -->
+            <div id="history-page" class="page">
+                <div class="app-header">
+                    <h1><i class="fas fa-history"></i> 生产记录</h1>
+                    <div class="header-actions">
+                        <button id="exportHistoryBtn" class="btn btn-sm btn-outline"><i class="fas fa-file-export"></i></button>
+                    </div>
+                </div>
+                
+                <div class="work-history">
+                    <table id="historyTable">
+                        <thead>
+                            <tr>
+                                <th>日期</th>
+                                <th>产量</th>
+                                <th>差异</th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <!-- 动态内容将通过JavaScript填充 -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            
+            <!-- 设置页 -->
+            <div id="settings-page" class="page">
+                <div class="app-header">
+                    <h1><i class="fas fa-cog"></i> 系统设置</h1>
+                </div>
+                
+                <div class="card">
+                    <h2><i class="fas fa-database"></i> 数据管理</h2>
+                    <div class="backup-section">
+                        <div class="backup-actions">
+                            <button id="exportBtn" class="btn btn-sm"><i class="fas fa-file-excel"></i> 导出数据</button>
+                            <button id="importBtn" class="btn btn-sm"><i class="fas fa-file-import"></i> 导入数据</button>
+                            <button id="clearBtn" class="btn btn-sm" style="background: #ffebee; color: #d32f2f;">
+                                <i class="fas fa-trash-alt"></i> 清空数据
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="card">
+                    <h2><i class="fas fa-bullseye"></i> 生产目标</h2>
+                    <div class="form-group">
+                        <label for="dailyTarget">每日目标产量</label>
+                        <input type="number" id="dailyTarget" class="form-control" value="50000" min="0">
+                    </div>
+                    <div class="form-group">
+                        <label for="dailyHours">每日工作时间(小时)</label>
+                        <input type="number" id="dailyHours" class="form-control" value="8" min="1" max="24">
+                    </div>
+                    <button id="saveSettingsBtn" class="btn"><i class="fas fa-save"></i> 保存设置</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 移动端底部导航栏 -->
+    <div class="bottom-nav">
+        <a href="#" class="nav-item active" data-page="home-page">
+            <i class="fas fa-home"></i>
+            <span>首页</span>
+        </a>
+        <a href="#" class="nav-item" data-page="history-page">
+            <i class="fas fa-history"></i>
+            <span>记录</span>
+        </a>
+        <a href="#" class="nav-item" data-page="settings-page">
+            <i class="fas fa-cog"></i>
+            <span>设置</span>
+        </a>
+    </div>
+
+    <script>
+        // 初始化应用
+        document.addEventListener('DOMContentLoaded', function() {
+            // 隐藏启动画面
+            setTimeout(function() {
+                document.getElementById('splash-screen').style.opacity = '0';
+                setTimeout(function() {
+                    document.getElementById('splash-screen').style.display = 'none';
+                }, 300);
+            }, 1000);
+            
+            // 检查网络状态
+            window.addEventListener('online', updateOnlineStatus);
+            window.addEventListener('offline', updateOnlineStatus);
+            updateOnlineStatus();
+            
+            // 初始化数据
+            initData();
+            
+            // 设置当前日期
+            const today = new Date().toISOString().split('T')[0];
+            document.getElementById('workDate').value = today;
+            
+            // 页面导航
+            setupNavigation();
+            
+            // 表单提交
+            document.getElementById('workForm').addEventListener('submit', function(e) {
+                e.preventDefault();
+                saveWorkRecord();
+            });
+            
+            // 刷新按钮
+            document.getElementById('refreshBtn').addEventListener('click', function() {
+                updateDailyStats();
+            });
+            
+            // 保存设置
+            document.getElementById('saveSettingsBtn').addEventListener('click', saveSettings);
+            
+            // 数据导出导入
+            document.getElementById('exportBtn').addEventListener('click', exportData);
+            document.getElementById('importBtn').addEventListener('click', importData);
+            document.getElementById('clearBtn').addEventListener('click', clearData);
+            document.getElementById('exportHistoryBtn').addEventListener('click', exportHistory);
+            
+            // 初始加载数据
+            updateDailyStats();
+            loadHistory();
+        });
+        
+        // 更新网络状态显示
+        function updateOnlineStatus() {
+            const offlineStatus = document.getElementById('offline-status');
+            if (navigator.onLine) {
+                offlineStatus.classList.remove('show');
+            } else {
+                offlineStatus.classList.add('show');
+            }
+        }
+        
+        // 初始化本地存储数据
+        function initData() {
+            if (!localStorage.getItem('productionData')) {
+                localStorage.setItem('productionData', JSON.stringify({
+                    settings: {
+                        dailyTarget: 50000,
+                        dailyHours: 8
+                    },
+                    records: []
+                }));
+            }
+        }
+        
+        // 获取存储的数据
+        function getData() {
+            return JSON.parse(localStorage.getItem('productionData'));
+        }
+        
+        // 保存数据到本地存储
+        function saveData(data) {
+            localStorage.setItem('productionData', JSON.stringify(data));
+        }
+        
+        // 设置页面导航
+        function setupNavigation() {
+            // PC端侧边导航
+            const sideNavItems = document.querySelectorAll('.side-nav-item');
+            sideNavItems.forEach(item => {
+                item.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    const pageId = this.getAttribute('data-page');
+                    switchPage(pageId);
+                    
+                    // 更新活动状态
+                    sideNavItems.forEach(navItem => navItem.classList.remove('active'));
+                    this.classList.add('active');
+                });
+            });
+            
+            // 移动端底部导航
+            const navItems = document.querySelectorAll('.nav-item');
+            navItems.forEach(item => {
+                item.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    const pageId = this.getAttribute('data-page');
+                    switchPage(pageId);
+                    
+                    // 更新活动状态
+                    navItems.forEach(navItem => navItem.classList.remove('active'));
+                    this.classList.add('active');
+                });
+            });
+        }
+        
+        // 切换页面
+        function switchPage(pageId) {
+            const pages = document.querySelectorAll('.page');
+            pages.forEach(page => page.classList.remove('active'));
+            
+            const activePage = document.getElementById(pageId);
+            if (activePage) {
+                activePage.classList.add('active');
+                
+                // 如果是历史页面，刷新数据
+                if (pageId === 'history-page') {
+                    loadHistory();
+                }
+            }
+        }
+        
+        // 保存生产记录
+        function saveWorkRecord() {
+            const date = document.getElementById('workDate').value;
+            const content = document.getElementById('workContent').value;
+            const output = parseInt(document.getElementById('workOutput').value);
+            
+            if (!date || !content || isNaN(output)) {
+                alert('请填写完整的生产信息');
+                return;
+            }
+            
+            const data = getData();
+            
+            // 添加新记录
+            data.records.push({
+                date,
+                content,
+                output,
+                timestamp: new Date().getTime()
+            });
+            
+            saveData(data);
+            
+            // 重置表单
+            document.getElementById('workContent').value = '';
+            document.getElementById('workOutput').value = '';
+            
+            // 更新统计
+            updateDailyStats();
+            
+            alert('生产记录已保存');
+        }
+        
+        // 更新当日统计
+        function updateDailyStats() {
+            const today = new Date().toISOString().split('T')[0];
+            const data = getData();
+            const todayRecords = data.records.filter(record => record.date === today);
+            
+            // 计算总产量
+            const totalOutput = todayRecords.reduce((sum, record) => sum + record.output, 0);
+            const dailyTarget = data.settings.dailyTarget;
+            const difference = totalOutput - dailyTarget;
+            
+            // 更新显示
+            document.getElementById('totalOutput').textContent = totalOutput.toLocaleString();
+            document.getElementById('totalDifference').textContent = difference.toLocaleString();
+            
+            // 更新进度条
+            const progressPercentage = Math.min(Math.round((totalOutput / dailyTarget) * 100), 100);
+            const progressBar = document.getElementById('progressBar');
+            progressBar.style.width = `${progressPercentage}%`;
+            progressBar.textContent = `${progressPercentage}%`;
+            
+            // 更新完成状态
+            const completionStatus = document.getElementById('completionStatus');
+            completionStatus.textContent = `今日进度: ${totalOutput.toLocaleString()}/${dailyTarget.toLocaleString()} (${progressPercentage}%)`;
+            
+            // 根据差异设置样式
+            if (difference > 0) {
+                completionStatus.className = 'over-target';
+                document.getElementById('totalDifference').className = 'over-target';
+            } else if (difference < 0) {
+                completionStatus.className = 'under-target';
+                document.getElementById('totalDifference').className = 'under-target';
+            } else {
+                completionStatus.className = 'target-met';
+                document.getElementById('totalDifference').className = 'target-met';
+            }
+            
+            // 更新累计产量显示
+            document.getElementById('completed').value = totalOutput.toLocaleString();
+        }
+        
+        // 加载历史记录
+        function loadHistory() {
+            const data = getData();
+            const historyTable = document.getElementById('historyTable').querySelector('tbody');
+            historyTable.innerHTML = '';
+            
+            // 按日期分组
+            const recordsByDate = {};
+            data.records.forEach(record => {
+                if (!recordsByDate[record.date]) {
+                    recordsByDate[record.date] = [];
+                }
+                recordsByDate[record.date].push(record);
+            });
+            
+            // 按日期排序
+            const sortedDates = Object.keys(recordsByDate).sort((a, b) => new Date(b) - new Date(a));
+            
+            // 填充表格
+            sortedDates.forEach(date => {
+                const dateRecords = recordsByDate[date];
+                const totalOutput = dateRecords.reduce((sum, record) => sum + record.output, 0);
+                const dailyTarget = data.settings.dailyTarget;
+                const difference = totalOutput - dailyTarget;
+                
+                // 日期行
+                const dateRow = document.createElement('tr');
+                dateRow.className = 'date-row';
+                dateRow.innerHTML = `
+                    <td>${formatDate(date)}</td>
+                    <td>${totalOutput.toLocaleString()}</td>
+                    <td class="${difference > 0 ? 'over-target' : difference < 0 ? 'under-target' : 'target-met'}">
+                        ${difference.toLocaleString()}
+                    </td>
+                    <td class="actions">
+                        <button class="action-btn delete" data-date="${date}">
+                            <i class="fas fa-trash-alt"></i>
+                        </button>
+                    </td>
+                `;
+                historyTable.appendChild(dateRow);
+                
+                // 详情行
+                const detailRow = document.createElement('tr');
+                detailRow.className = 'detail-row';
+                const detailCell = document.createElement('td');
+                detailCell.colSpan = 4;
+                
+                let detailsHtml = '<div style="margin-bottom: 10px;"><strong>详细记录:</strong></div>';
+                dateRecords.forEach(record => {
+                    detailsHtml += `
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+                            <span>${record.content}</span>
+                            <span>${record.output.toLocaleString()}</span>
+                        </div>
+                    `;
+                });
+                
+                detailCell.innerHTML = detailsHtml;
+                detailRow.appendChild(detailCell);
+                historyTable.appendChild(detailRow);
+                
+                // 添加点击事件
+                dateRow.addEventListener('click', function() {
+                    const detailRow = this.nextElementSibling;
+                    if (detailRow.style.display === 'table-row') {
+                        detailRow.style.display = 'none';
+                    } else {
+                        detailRow.style.display = 'table-row';
+                    }
+                });
+                
+                // 添加删除按钮事件
+                const deleteBtn = dateRow.querySelector('.action-btn.delete');
+                deleteBtn.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    if (confirm(`确定要删除 ${formatDate(date)} 的所有记录吗？`)) {
+                        deleteRecordsByDate(date);
+                    }
+                });
+            });
+            
+            // 如果没有记录，显示空状态
+            if (sortedDates.length === 0) {
+                const emptyRow = document.createElement('tr');
+                emptyRow.innerHTML = `
+                    <td colspan="4" style="text-align: center; padding: 30px;">
+                        <div class="empty-state">
+                            <i class="fas fa-inbox"></i>
+                            <p>暂无生产记录</p>
+                        </div>
+                    </td>
+                `;
+                historyTable.appendChild(emptyRow);
+            }
+        }
+        
+        // 删除指定日期的所有记录
+        function deleteRecordsByDate(date) {
+            const data = getData();
+            data.records = data.records.filter(record => record.date !== date);
+            saveData(data);
+            loadHistory();
+            
+            // 如果是当天记录被删除，更新统计
+            const today = new Date().toISOString().split('T')[0];
+            if (date === today) {
+                updateDailyStats();
+            }
+        }
+        
+        // 保存设置
+        function saveSettings() {
+            const dailyTarget = parseInt(document.getElementById('dailyTarget').value);
+            const dailyHours = parseInt(document.getElementById('dailyHours').value);
+            
+            if (isNaN(dailyTarget)) {
+                alert('请输入有效的目标产量');
+                return;
+            }
+            
+            if (isNaN(dailyHours)) {
+                alert('请输入有效的工作时间');
+                return;
+            }
+            
+            const data = getData();
+            data.settings.dailyTarget = dailyTarget;
+            data.settings.dailyHours = dailyHours;
+            saveData(data);
+            
+            // 更新显示
+            document.getElementById('dailyTargetDisplay').textContent = dailyTarget.toLocaleString();
+            document.getElementById('dailyHoursDisplay').textContent = dailyHours;
+            
+            // 更新统计
+            updateDailyStats();
+            
+            alert('设置已保存');
+        }
+        
+        // 导出数据
+        function exportData() {
+            const data = getData();
+            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `生产统计_${new Date().toISOString().split('T')[0]}.json`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+        
+        // 导入数据
+        function importData() {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = '.json';
+            
+            input.onchange = e => {
+                const file = e.target.files[0];
+                if (!file) return;
+                
+                const reader = new FileReader();
+                reader.onload = event => {
+                    try {
+                        const data = JSON.parse(event.target.result);
+                        
+                        // 验证数据格式
+                        if (!data.settings || !data.records) {
+                            throw new Error('文件格式不正确');
+                        }
+                        
+                        if (confirm('导入数据将覆盖当前所有记录，确定要继续吗？')) {
+                            saveData(data);
+                            alert('数据导入成功');
+                            
+                            // 刷新显示
+                            document.getElementById('dailyTarget').value = data.settings.dailyTarget;
+                            document.getElementById('dailyHours').value = data.settings.dailyHours;
+                            updateDailyStats();
+                            loadHistory();
+                        }
+                    } catch (error) {
+                        alert('导入失败: ' + error.message);
+                    }
+                };
+                reader.readAsText(file);
+            };
+            
+            input.click();
+        }
+        
+        // 清空数据
+        function clearData() {
+            if (confirm('确定要清空所有数据吗？此操作不可恢复！')) {
+                localStorage.removeItem('productionData');
+                initData();
+                alert('数据已清空');
+                
+                // 重置显示
+                document.getElementById('dailyTarget').value = 50000;
+                document.getElementById('dailyHours').value = 8;
+                updateDailyStats();
+                loadHistory();
+            }
+        }
+        
+        // 导出历史记录为CSV
+        function exportHistory() {
+            const data = getData();
+            const recordsByDate = {};
+            
+            // 按日期分组
+            data.records.forEach(record => {
+                if (!recordsByDate[record.date]) {
+                    recordsByDate[record.date] = [];
+                }
+                recordsByDate[record.date].push(record);
+            });
+            
+            // 生成CSV内容
+            let csvContent = "日期,生产内容,产量,累计产量,目标差异\n";
+            
+            Object.keys(recordsByDate).sort((a, b) => new Date(a) - new Date(b)).forEach(date => {
+                const dateRecords = recordsByDate[date];
+                const totalOutput = dateRecords.reduce((sum, record) => sum + record.output, 0);
+                const difference = totalOutput - data.settings.dailyTarget;
+                
+                dateRecords.forEach((record, index) => {
+                    const row = [
+                        index === 0 ? formatDate(date) : '',
+                        record.content,
+                        record.output,
+                        index === 0 ? totalOutput : '',
+                        index === 0 ? difference : ''
+                    ];
+                    csvContent += row.join(',') + '\n';
+                });
+            });
+            
+            // 创建下载链接
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `生产记录_${new Date().toISOString().split('T')[0]}.csv`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+        
+        // 格式化日期显示
+        function formatDate(dateString) {
+            const date = new Date(dateString);
+            return `${date.getFullYear()}年${date.getMonth() + 1}月${date.getDate()}日`;
+        }
+    </script>
+</body>
+</html>
