@@ -1,0 +1,1403 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>生产统计系统</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="manifest" href="manifest.json">
+    <link rel="apple-touch-icon" href="icon-192x192.png">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            -webkit-tap-highlight-color: transparent;
+        }
+        
+        :root {
+            --primary-color: #1a2a6c;
+            --secondary-color: #b21f1f;
+            --text-color: #333;
+            --light-text: #777;
+            --bg-color: #f5f5f9;
+            --card-bg: #ffffff;
+            --border-radius: 12px;
+            --box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+            --nav-height: 60px;
+        }
+        
+        body {
+            background: var(--bg-color);
+            color: var(--text-color);
+            line-height: 1.5;
+            min-height: 100vh;
+            padding-bottom: var(--nav-height);
+            -webkit-text-size-adjust: 100%;
+            overflow-x: hidden;
+        }
+        
+        /* 启动画面 */
+        #splash-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+            transition: opacity 0.3s;
+        }
+        
+        #splash-screen img {
+            width: 80px;
+            height: 80px;
+            margin-bottom: 20px;
+            animation: pulse 1.5s infinite;
+        }
+        
+        #splash-screen h1 {
+            color: white;
+            font-size: 1.5rem;
+            margin-bottom: 10px;
+        }
+        
+        #splash-screen p {
+            color: rgba(255, 255, 255, 0.8);
+            font-size: 0.9rem;
+        }
+        
+        /* 离线状态提示 */
+        #offline-status {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            background: #ff9800;
+            color: white;
+            text-align: center;
+            padding: 8px;
+            font-size: 0.85rem;
+            z-index: 1000;
+            transform: translateY(-100%);
+            transition: transform 0.3s;
+        }
+        
+        #offline-status.show {
+            transform: translateY(0);
+        }
+        
+        /* 应用容器 */
+        .app-container {
+            max-width: 100%;
+            margin: 0 auto;
+            padding: 15px;
+        }
+        
+        /* 顶部标题栏 */
+        .app-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px 0;
+            margin-bottom: 15px;
+            position: sticky;
+            top: 0;
+            background: var(--bg-color);
+            z-index: 10;
+        }
+        
+        .app-header h1 {
+            font-size: 1.5rem;
+            color: var(--primary-color);
+            font-weight: 600;
+        }
+        
+        .app-header .header-actions {
+            display: flex;
+            gap: 10px;
+        }
+        
+        /* 卡片样式 */
+        .card {
+            background: var(--card-bg);
+            border-radius: var(--border-radius);
+            box-shadow: var(--box-shadow);
+            padding: 18px;
+            margin-bottom: 15px;
+            transition: transform 0.2s;
+        }
+        
+        .card:active {
+            transform: scale(0.98);
+        }
+        
+        .card h2 {
+            color: var(--primary-color);
+            font-size: 1.2rem;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .card h2 i {
+            color: var(--secondary-color);
+        }
+        
+        /* 表单元素 */
+        .form-group {
+            margin-bottom: 15px;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 6px;
+            font-size: 0.9rem;
+            color: var(--text-color);
+            font-weight: 500;
+        }
+        
+        .form-control {
+            width: 100%;
+            padding: 12px 15px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            font-size: 1rem;
+            background: #f9f9f9;
+            -webkit-appearance: none;
+        }
+        
+        .form-control:focus {
+            border-color: var(--primary-color);
+            outline: none;
+            background: #fff;
+        }
+        
+        /* 按钮样式 */
+        .btn {
+            display: inline-block;
+            padding: 14px;
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 500;
+            text-align: center;
+            cursor: pointer;
+            width: 100%;
+            transition: all 0.2s;
+            touch-action: manipulation;
+        }
+        
+        .btn:active {
+            transform: scale(0.98);
+            opacity: 0.9;
+        }
+        
+        .btn-sm {
+            padding: 8px 12px;
+            font-size: 0.85rem;
+            width: auto;
+        }
+        
+        .btn-outline {
+            background: transparent;
+            border: 1px solid var(--primary-color);
+            color: var(--primary-color);
+        }
+        
+        /* 统计卡片 */
+        .stats-container {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+            margin-bottom: 15px;
+        }
+        
+        .stat-card {
+            background: var(--card-bg);
+            border-radius: var(--border-radius);
+            padding: 15px;
+            text-align: center;
+            box-shadow: var(--box-shadow);
+        }
+        
+        .stat-card i {
+            font-size: 1.8rem;
+            color: var(--primary-color);
+            margin-bottom: 10px;
+        }
+        
+        .stat-card h3 {
+            font-size: 1.4rem;
+            margin-bottom: 3px;
+            color: var(--secondary-color);
+        }
+        
+        .stat-card p {
+            color: var(--light-text);
+            font-size: 0.85rem;
+        }
+        
+        /* 进度条 */
+        .progress-container {
+            width: 100%;
+            background-color: #f1f1f1;
+            border-radius: 8px;
+            margin: 10px 0;
+            height: 16px;
+        }
+        
+        .progress-bar {
+            height: 100%;
+            border-radius: 8px;
+            background: linear-gradient(90deg, var(--primary-color), var(--secondary-color));
+            text-align: center;
+            line-height: 16px;
+            color: white;
+            font-size: 0.7rem;
+            transition: width 0.3s;
+        }
+        
+        /* 差异显示样式 */
+        .over-target {
+            color: #4CAF50;
+            font-weight: bold;
+        }
+        
+        .under-target {
+            color: #F44336;
+            font-weight: bold;
+        }
+        
+        .target-met {
+            color: #2196F3;
+            font-weight: bold;
+        }
+        
+        /* 历史记录表格 */
+        .work-history {
+            background: var(--card-bg);
+            border-radius: var(--border-radius);
+            padding: 15px;
+            box-shadow: var(--box-shadow);
+            margin-bottom: 20px;
+        }
+        
+        .history-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        
+        .history-header h2 {
+            font-size: 1.2rem;
+            color: var(--primary-color);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+        
+        th, td {
+            padding: 12px 8px;
+            text-align: left;
+            border-bottom: 1px solid #eee;
+        }
+        
+        th {
+            background-color: #f8f9fa;
+            color: var(--primary-color);
+            font-weight: 500;
+            font-size: 0.85rem;
+        }
+        
+        tr:active {
+            background-color: #f5f7ff;
+        }
+        
+        .date-row {
+            cursor: pointer;
+            background-color: #f8f9fa !important;
+        }
+        
+        .detail-row {
+            display: none;
+        }
+        
+        .detail-row td {
+            padding: 8px 8px 8px 20px;
+            background-color: #fafafa;
+            font-size: 0.85rem;
+        }
+        
+        .actions {
+            display: flex;
+            gap: 8px;
+        }
+        
+        .action-btn {
+            padding: 5px 8px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.8rem;
+            touch-action: manipulation;
+        }
+        
+        .action-btn:active {
+            opacity: 0.8;
+        }
+        
+        .action-btn.delete {
+            background: #ffebee;
+            color: #d32f2f;
+        }
+        
+        /* 底部导航栏 */
+        .bottom-nav {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: var(--nav-height);
+            background: white;
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.08);
+            z-index: 100;
+        }
+        
+        .nav-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: var(--light-text);
+            text-decoration: none;
+            font-size: 0.7rem;
+            padding: 8px;
+            flex: 1;
+            transition: all 0.2s;
+        }
+        
+        .nav-item i {
+            font-size: 1.2rem;
+            margin-bottom: 3px;
+        }
+        
+        .nav-item.active {
+            color: var(--primary-color);
+            transform: translateY(-2px);
+        }
+        
+        /* 页面切换动画 */
+        .page {
+            display: none;
+            animation: fadeIn 0.3s ease;
+        }
+        
+        .page.active {
+            display: block;
+        }
+        
+        /* 数据备份区域 */
+        .backup-section {
+            background: #f9f9f9;
+            border-radius: 8px;
+            padding: 12px;
+            margin-top: 15px;
+        }
+        
+        .backup-actions {
+            display: flex;
+            gap: 8px;
+            margin-top: 10px;
+            flex-wrap: wrap;
+        }
+        
+        /* 空状态 */
+        .empty-state {
+            text-align: center;
+            padding: 30px 0;
+            color: var(--light-text);
+        }
+        
+        .empty-state i {
+            font-size: 2.5rem;
+            color: #ddd;
+            margin-bottom: 15px;
+        }
+        
+        /* 动画 */
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+        
+        /* 响应式调整 */
+        @media (min-width: 400px) {
+            .app-container {
+                max-width: 400px;
+                margin: 0 auto;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- 启动画面 -->
+    <div id="splash-screen">
+        <i class="fas fa-industry" style="font-size: 3rem; color: white;"></i>
+        <h1>生产统计系统</h1>
+        <p>加载中...</p>
+    </div>
+
+    <!-- 离线状态提示 -->
+    <div id="offline-status">
+        <i class="fas fa-wifi-slash"></i> 当前处于离线状态，数据将在恢复网络后同步
+    </div>
+
+    <!-- 主应用容器 -->
+    <div class="app-container">
+        <!-- 首页 -->
+        <div id="home-page" class="page active">
+            <div class="app-header">
+                <h1><i class="fas fa-industry"></i> 生产统计</h1>
+                <div class="header-actions">
+                    <button id="refreshBtn" class="btn btn-sm btn-outline"><i class="fas fa-sync-alt"></i></button>
+                </div>
+            </div>
+            
+            <div class="stats-container">
+                <div class="stat-card">
+                    <i class="fas fa-bullseye"></i>
+                    <h3 id="dailyTargetDisplay">50,000</h3>
+                    <p>目标产量</p>
+                </div>
+                <div class="stat-card">
+                    <i class="fas fa-clock"></i>
+                    <h3 id="dailyHoursDisplay">8</h3>
+                    <p>工作时间</p>
+                </div>
+                <div class="stat-card">
+                    <i class="fas fa-boxes"></i>
+                    <h3 id="totalOutput">0</h3>
+                    <p>今日产量</p>
+                </div>
+                <div class="stat-card">
+                    <i class="fas fa-balance-scale"></i>
+                    <h3 id="totalDifference">0</h3>
+                    <p>目标差异</p>
+                </div>
+            </div>
+            
+            <div class="card">
+                <h2><i class="fas fa-plus-circle"></i> 新增记录</h2>
+                <form id="workForm">
+                    <div class="form-group">
+                        <label for="workDate">生产日期</label>
+                        <input type="date" id="workDate" class="form-control" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="workContent">生产内容</label>
+                        <input type="text" id="workContent" class="form-control" placeholder="请输入生产内容" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="workOutput">生产产量</label>
+                        <input type="number" id="workOutput" class="form-control" placeholder="输入本次生产产量" min="0" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>当日累计产量</label>
+                        <input type="text" id="completed" class="form-control" readonly>
+                        <div class="progress-container">
+                            <div id="progressBar" class="progress-bar" style="width: 0%">0%</div>
+                        </div>
+                        <small id="completionStatus" class="target-met">今日进度: 0/50,000 (0%)</small>
+                    </div>
+                    
+                    <button type="submit" class="btn"><i class="fas fa-save"></i> 保存记录</button>
+                </form>
+            </div>
+        </div>
+        
+        <!-- 历史记录页 -->
+        <div id="history-page" class="page">
+            <div class="app-header">
+                <h1><i class="fas fa-history"></i> 生产记录</h1>
+                <div class="header-actions">
+                    <button id="exportHistoryBtn" class="btn btn-sm btn-outline"><i class="fas fa-file-export"></i></button>
+                </div>
+            </div>
+            
+            <div class="work-history">
+                <table id="historyTable">
+                    <thead>
+                        <tr>
+                            <th>日期</th>
+                            <th>产量</th>
+                            <th>差异</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <!-- 动态内容将通过JavaScript填充 -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        
+        <!-- 设置页 -->
+        <div id="settings-page" class="page">
+            <div class="app-header">
+                <h1><i class="fas fa-cog"></i> 系统设置</h1>
+            </div>
+            
+            <div class="card">
+                <h2><i class="fas fa-database"></i> 数据管理</h2>
+                <div class="backup-section">
+                    <div class="backup-actions">
+                        <button id="exportBtn" class="btn btn-sm"><i class="fas fa-file-excel"></i> 导出数据</button>
+                        <button id="importBtn" class="btn btn-sm"><i class="fas fa-file-import"></i> 导入数据</button>
+                        <button id="clearBtn" class="btn btn-sm" style="background: #ffebee; color: #d32f2f;">
+                            <i class="fas fa-trash-alt"></i> 清空数据
+                        </button>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="card">
+                <h2><i class="fas fa-bullseye"></i> 生产目标</h2>
+                <div class="form-group">
+                    <label for="dailyTarget">每日目标产量</label>
+                    <input type="number" id="dailyTarget" class="form-control" value="50000" min="0">
+                </div>
+                <div class="form-group">
+                    <label for="dailyHours">每日工作时间(小时)</label>
+                    <input type="number" id="dailyHours" class="form-control" value="8" min="1" max="24">
+                </div>
+                <button id="saveSettingsBtn" class="btn"><i class="fas fa-save"></i> 保存设置</button>
+            </div>
+            
+            <div class="card">
+                <h2><i class="fas fa-info-circle"></i> 关于应用</h2>
+                <p style="margin-bottom: 10px; font-size: 0.9rem;">
+                    <strong>版本:</strong> 2.1.0 (离线版)
+                </p>
+                <p style="margin-bottom: 10px; font-size: 0.9rem;">
+                    <strong>存储使用:</strong> <span id="storageUsage">计算中...</span>
+                </p>
+                <button id="clearCacheBtn" class="btn btn-sm btn-outline" style="margin-top: 10px;">
+                    <i class="fas fa-broom"></i> 清理缓存
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 底部导航栏 -->
+    <div class="bottom-nav">
+        <a href="#" class="nav-item active" data-page="home-page">
+            <i class="fas fa-home"></i>
+            <span>首页</span>
+        </a>
+        <a href="#" class="nav-item" data-page="history-page">
+            <i class="fas fa-history"></i>
+            <span>记录</span>
+        </a>
+        <a href="#" class="nav-item" data-page="settings-page">
+            <i class="fas fa-cog"></i>
+            <span>设置</span>
+        </a>
+    </div>
+
+    <script>
+        // 常量定义
+        let DAILY_TARGET = 50000;
+        let DAILY_HOURS = 8;
+        let workRecords = [];
+        let db;
+        let isOnline = navigator.onLine;
+        
+        // 初始化IndexedDB
+        function initDB() {
+            return new Promise((resolve, reject) => {
+                const request = indexedDB.open('ProductionStatsDB', 1);
+                
+                request.onerror = (event) => {
+                    console.error('数据库打开失败:', event.target.error);
+                    reject('数据库打开失败');
+                };
+                
+                request.onsuccess = (event) => {
+                    db = event.target.result;
+                    console.log('数据库连接成功');
+                    resolve(db);
+                };
+                
+                request.onupgradeneeded = (event) => {
+                    const db = event.target.result;
+                    if (!db.objectStoreNames.contains('workRecords')) {
+                        const store = db.createObjectStore('workRecords', { keyPath: 'timestamp' });
+                        store.createIndex('date', 'date', { unique: false });
+                        console.log('数据库结构创建成功');
+                    }
+                };
+            });
+        }
+        
+        // 从IndexedDB加载数据
+        function loadFromDB() {
+            return new Promise((resolve, reject) => {
+                if (!db) {
+                    reject('数据库未初始化');
+                    return;
+                }
+                
+                const transaction = db.transaction(['workRecords'], 'readonly');
+                const store = transaction.objectStore('workRecords');
+                const request = store.getAll();
+                
+                request.onerror = (event) => {
+                    reject('数据加载失败: ' + event.target.error);
+                };
+                
+                request.onsuccess = (event) => {
+                    workRecords = event.target.result || [];
+                    resolve(workRecords);
+                };
+            });
+        }
+        
+        // 保存数据到IndexedDB
+        function saveToDB(records) {
+            return new Promise((resolve, reject) => {
+                if (!db) {
+                    reject('数据库未初始化');
+                    return;
+                }
+                
+                const transaction = db.transaction(['workRecords'], 'readwrite');
+                const store = transaction.objectStore('workRecords');
+                
+                // 先清空现有数据
+                const clearRequest = store.clear();
+                
+                clearRequest.onerror = (event) => {
+                    reject('清空数据失败: ' + event.target.error);
+                };
+                
+                clearRequest.onsuccess = () => {
+                    // 添加新数据
+                    let count = 0;
+                    const total = records.length;
+                    
+                    if (total === 0) {
+                        resolve();
+                        return;
+                    }
+                    
+                    records.forEach(record => {
+                        const addRequest = store.add(record);
+                        
+                        addRequest.onerror = (event) => {
+                            console.error('添加记录失败:', event.target.error);
+                        };
+                        
+                        addRequest.onsuccess = () => {
+                            count++;
+                            if (count === total) {
+                                resolve();
+                            }
+                        };
+                    });
+                };
+            });
+        }
+        
+        // 页面加载完成后执行
+        document.addEventListener('DOMContentLoaded', async function() {
+            // 显示离线状态
+            updateOnlineStatus();
+            window.addEventListener('online', updateOnlineStatus);
+            window.addEventListener('offline', updateOnlineStatus);
+            
+            // 隐藏启动画面
+            setTimeout(() => {
+                document.getElementById('splash-screen').style.opacity = '0';
+                setTimeout(() => {
+                    document.getElementById('splash-screen').style.display = 'none';
+                }, 300);
+            }, 1000);
+            
+            // 初始化数据库
+            try {
+                await initDB();
+                await loadFromDB();
+            } catch (error) {
+                console.error('数据库初始化失败:', error);
+                showToast('数据库初始化失败，将使用临时存储', 'error');
+            }
+            
+            // 初始化日期为今天
+            const today = new Date().toISOString().split('T')[0];
+            document.getElementById('workDate').value = today;
+            
+            // 加载设置
+            loadSettings();
+            updateUI();
+            
+            // 计算存储使用情况
+            calculateStorageUsage();
+            
+            // 表单提交事件
+            document.getElementById('workForm').addEventListener('submit', function(e) {
+                e.preventDefault();
+                saveWorkRecord();
+            });
+            
+            // 监听生产产量输入变化
+            document.getElementById('workOutput').addEventListener('input', updateCompletionStatus);
+            
+            // 数据操作按钮
+            document.getElementById('exportBtn').addEventListener('click', exportToExcel);
+            document.getElementById('importBtn').addEventListener('click', importData);
+            document.getElementById('clearBtn').addEventListener('click', clearData);
+            document.getElementById('refreshBtn').addEventListener('click', refreshData);
+            document.getElementById('exportHistoryBtn').addEventListener('click', exportToExcel);
+            document.getElementById('saveSettingsBtn').addEventListener('click', saveSettings);
+            document.getElementById('clearCacheBtn').addEventListener('click', clearCache);
+            
+            // 底部导航切换
+            document.querySelectorAll('.nav-item').forEach(item => {
+                item.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    
+                    // 更新活动导航项
+                    document.querySelectorAll('.nav-item').forEach(nav => {
+                        nav.classList.remove('active');
+                    });
+                    this.classList.add('active');
+                    
+                    // 切换页面
+                    const pageId = this.getAttribute('data-page');
+                    document.querySelectorAll('.page').forEach(page => {
+                        page.classList.remove('active');
+                    });
+                    document.getElementById(pageId).classList.add('active');
+                    
+                    // 如果是设置页，更新存储使用情况
+                    if (pageId === 'settings-page') {
+                        calculateStorageUsage();
+                    }
+                });
+            });
+            
+            // 添加服务工作者(用于PWA)
+            if ('serviceWorker' in navigator) {
+                window.addEventListener('load', () => {
+                    navigator.serviceWorker.register('sw.js').then(registration => {
+                        console.log('ServiceWorker 注册成功: ', registration.scope);
+                    }).catch(err => {
+                        console.log('ServiceWorker 注册失败: ', err);
+                    });
+                });
+            }
+        });
+        
+        // 更新在线状态
+        function updateOnlineStatus() {
+            isOnline = navigator.onLine;
+            const offlineStatus = document.getElementById('offline-status');
+            
+            if (isOnline) {
+                offlineStatus.classList.remove('show');
+                showToast('网络已连接', 'success');
+                // 这里可以添加数据同步逻辑
+            } else {
+                offlineStatus.classList.add('show');
+                showToast('当前处于离线状态', 'error');
+            }
+        }
+        
+        // 计算存储使用情况
+        async function calculateStorageUsage() {
+            if (!navigator.storage || !navigator.storage.estimate) {
+                document.getElementById('storageUsage').textContent = '存储API不可用';
+                return;
+            }
+            
+            try {
+                const estimate = await navigator.storage.estimate();
+                const percentUsed = (estimate.usage / estimate.quota * 100).toFixed(1);
+                document.getElementById('storageUsage').textContent = 
+                    `${formatBytes(estimate.usage)} / ${formatBytes(estimate.quota)} (${percentUsed}%)`;
+            } catch (error) {
+                console.error('计算存储使用失败:', error);
+                document.getElementById('storageUsage').textContent = '计算失败';
+            }
+        }
+        
+        // 清理缓存
+        function clearCache() {
+            if (!confirm('确定要清理应用缓存吗？这不会删除您的生产数据。')) return;
+            
+            if ('caches' in window) {
+                caches.keys().then(cacheNames => {
+                    return Promise.all(
+                        cacheNames.map(cacheName => {
+                            return caches.delete(cacheName);
+                        })
+                    );
+                }).then(() => {
+                    showToast('缓存已清理', 'success');
+                    calculateStorageUsage();
+                }).catch(error => {
+                    console.error('清理缓存失败:', error);
+                    showToast('清理缓存失败', 'error');
+                });
+            } else {
+                showToast('缓存API不可用', 'error');
+            }
+        }
+        
+        // 字节格式化
+        function formatBytes(bytes, decimals = 2) {
+            if (bytes === 0) return '0 Bytes';
+            
+            const k = 1024;
+            const dm = decimals < 0 ? 0 : decimals;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
+        }
+        
+        async function saveWorkRecord() {
+            const submitBtn = document.querySelector('#workForm button[type="submit"]');
+            const originalText = submitBtn.innerHTML;
+            submitBtn.innerHTML = '<i class="fas fa-spinner fa-pulse"></i> 保存中...';
+            submitBtn.disabled = true;
+            
+            const workOutput = parseInt(document.getElementById('workOutput').value) || 0;
+            const today = document.getElementById('workDate').value;
+            
+            const workRecord = {
+                date: today,
+                content: document.getElementById('workContent').value,
+                hours: DAILY_HOURS,
+                output: workOutput,
+                timestamp: new Date().getTime()
+            };
+            
+            // 添加到记录数组
+            workRecords.push(workRecord);
+            
+            // 保存到数据库
+            try {
+                await saveToDB(workRecords);
+                updateUI();
+                
+                // 重置表单
+                document.getElementById('workContent').value = '';
+                document.getElementById('workOutput').value = '';
+                
+                showToast('记录已保存!');
+            } catch (error) {
+                console.error('保存记录失败:', error);
+                showToast('保存失败，请重试', 'error');
+                // 回滚
+                workRecords.pop();
+            }
+            
+            // 恢复按钮状态
+            submitBtn.innerHTML = originalText;
+            submitBtn.disabled = false;
+        }
+        
+        function loadSettings() {
+            try {
+                const target = localStorage.getItem('dailyTarget');
+                if (target) {
+                    DAILY_TARGET = parseInt(target);
+                    document.getElementById('dailyTarget').value = DAILY_TARGET;
+                    document.getElementById('dailyTargetDisplay').textContent = DAILY_TARGET.toLocaleString();
+                }
+                
+                const hours = localStorage.getItem('dailyHours');
+                if (hours) {
+                    DAILY_HOURS = parseInt(hours);
+                    document.getElementById('dailyHours').value = DAILY_HOURS;
+                    document.getElementById('dailyHoursDisplay').textContent = DAILY_HOURS;
+                }
+            } catch(e) {
+                console.error("加载设置失败:", e);
+            }
+        }
+        
+        async function saveSettings() {
+            try {
+                DAILY_TARGET = parseInt(document.getElementById('dailyTarget').value) || 50000;
+                DAILY_HOURS = parseInt(document.getElementById('dailyHours').value) || 8;
+                
+                localStorage.setItem('dailyTarget', DAILY_TARGET);
+                localStorage.setItem('dailyHours', DAILY_HOURS);
+                
+                document.getElementById('dailyTargetDisplay').textContent = DAILY_TARGET.toLocaleString();
+                document.getElementById('dailyHoursDisplay').textContent = DAILY_HOURS;
+                
+                showToast('设置已保存!');
+                updateUI();
+            } catch(e) {
+                console.error("保存设置失败:", e);
+                showToast("保存设置失败", "error");
+            }
+        }
+        
+        function updateUI() {
+            updateHistoryTable();
+            updateStatistics();
+            updateCompletionStatus();
+        }
+        
+        function updateCompletionStatus() {
+            const today = document.getElementById('workDate').value;
+            const dailyRecords = workRecords.filter(r => r.date === today);
+            const dailyTotal = dailyRecords.reduce((sum, r) => sum + (parseInt(r.output) || 0), 0);
+            const outputInput = parseInt(document.getElementById('workOutput').value) || 0;
+            const projectedTotal = dailyTotal + outputInput;
+            
+            // 计算进度百分比
+            const percentage = Math.min(Math.round((projectedTotal / DAILY_TARGET) * 100), 100);
+            document.getElementById('progressBar').style.width = `${percentage}%`;
+            document.getElementById('progressBar').textContent = `${percentage}%`;
+            
+            const difference = projectedTotal - DAILY_TARGET;
+            let statusClass = 'target-met';
+            let statusText = `(刚好达标)`;
+            
+            if (difference > 0) {
+                statusClass = 'over-target';
+                statusText = `(+${difference} 超额)`;
+            } else if (difference < 0) {
+                statusClass = 'under-target';
+                statusText = `(${difference} 不足)`;
+            }
+            
+            document.getElementById('completed').value = projectedTotal;
+            const statusElement = document.getElementById('completionStatus');
+            statusElement.textContent = `今日进度: ${projectedTotal.toLocaleString()}/${DAILY_TARGET.toLocaleString()} (${percentage}%) ${statusText}`;
+            statusElement.className = statusClass;
+        }
+        
+        function updateHistoryTable() {
+            const tbody = document.querySelector('#historyTable tbody');
+            tbody.innerHTML = '';
+            
+            if (workRecords.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="4" style="text-align: center; padding: 30px 0;">暂无生产记录</td></tr>';
+                return;
+            }
+            
+            // 按日期分组
+            const recordsByDate = {};
+            workRecords.forEach(record => {
+                if (!recordsByDate[record.date]) {
+                    recordsByDate[record.date] = [];
+                }
+                recordsByDate[record.date].push(record);
+            });
+            
+            // 按日期排序
+            const sortedDates = Object.keys(recordsByDate).sort((a, b) => new Date(b) - new Date(a));
+            
+            sortedDates.forEach(date => {
+                const dateRecords = recordsByDate[date];
+                const totalOutput = dateRecords.reduce((sum, r) => sum + (parseInt(r.output) || 0), 0);
+                const difference = totalOutput - DAILY_TARGET;
+                
+                // 计算差异样式
+                let diffClass = '';
+                let diffText = '';
+                
+                if (difference > 0) {
+                    diffClass = 'over-target';
+                    diffText = `+${difference.toLocaleString()}`;
+                } else if (difference < 0) {
+                    diffClass = 'under-target';
+                    diffText = difference.toLocaleString();
+                } else {
+                    diffClass = 'target-met';
+                    diffText = '达标';
+                }
+                
+                // 添加日期行
+                const dateRow = document.createElement('tr');
+                dateRow.className = 'date-row';
+                dateRow.innerHTML = `
+                    <td>${date}</td>
+                    <td>${totalOutput.toLocaleString()}</td>
+                    <td class="${diffClass}">${diffText}</td>
+                    <td class="actions">
+                        <button class="action-btn delete" data-date="${date}"><i class="fas fa-trash-alt"></i></button>
+                    </td>
+                `;
+                tbody.appendChild(dateRow);
+                
+                // 添加详细记录行
+                const detailRow = document.createElement('tr');
+                detailRow.className = 'detail-row';
+                const detailCell = document.createElement('td');
+                detailCell.colSpan = 4;
+                
+                // 创建详细记录表格
+                const detailTable = document.createElement('table');
+                detailTable.innerHTML = `
+                    <thead>
+                        <tr>
+                            <th>时间</th>
+                            <th>内容</th>
+                            <th>产量</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${dateRecords.map((record, index) => `
+                            <tr>
+                                <td>${new Date(record.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</td>
+                                <td>${record.content}</td>
+                                <td>${record.output.toLocaleString()}</td>
+                                <td class="actions">
+                                    <button class="action-btn delete" data-id="${record.timestamp}"><i class="fas fa-trash-alt"></i></button>
+                                </td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                `;
+                
+                detailCell.appendChild(detailTable);
+                detailRow.appendChild(detailCell);
+                tbody.appendChild(detailRow);
+                
+                // 添加点击事件来展开/折叠详细记录
+                dateRow.addEventListener('click', function(e) {
+                    // 如果点击的是删除按钮，则不切换展开状态
+                    if (e.target.closest('.action-btn')) return;
+                    
+                    detailRow.style.display = detailRow.style.display === 'none' ? 'table-row' : 'none';
+                });
+            });
+            
+            // 添加删除事件
+            document.querySelectorAll('.action-btn.delete').forEach(btn => {
+                btn.addEventListener('click', function(e) {
+                    e.stopPropagation(); // 阻止事件冒泡
+                    
+                    if (this.getAttribute('data-date')) {
+                        // 删除整个日期的记录
+                        const date = this.getAttribute('data-date');
+                        deleteRecordsByDate(date);
+                    } else {
+                        // 删除单条记录
+                        const timestamp = parseInt(this.getAttribute('data-id'));
+                        deleteRecord(timestamp);
+                    }
+                });
+            });
+        }
+        
+        function updateStatistics() {
+            const today = document.getElementById('workDate').value;
+            const dailyRecords = workRecords.filter(r => r.date === today);
+            const dailyTotal = dailyRecords.reduce((sum, r) => sum + (parseInt(r.output) || 0), 0);
+            const difference = dailyTotal - DAILY_TARGET;
+            
+            document.getElementById('totalOutput').textContent = dailyTotal.toLocaleString();
+            document.getElementById('totalDifference').textContent = difference.toLocaleString();
+            
+            // 设置差异颜色
+            const diffElement = document.getElementById('totalDifference');
+            diffElement.className = '';
+            if (difference > 0) {
+                diffElement.classList.add('over-target');
+            } else if (difference < 0) {
+                diffElement.classList.add('under-target');
+            } else {
+                diffElement.classList.add('target-met');
+            }
+        }
+        
+        async function deleteRecord(timestamp) {
+            if (!confirm('确定要删除这条记录吗?')) return;
+            
+            workRecords = workRecords.filter(r => r.timestamp !== timestamp);
+            try {
+                await saveToDB(workRecords);
+                updateUI();
+                showToast('记录已删除!');
+            } catch (error) {
+                console.error('删除记录失败:', error);
+                showToast('删除失败，请重试', 'error');
+            }
+        }
+        
+        async function deleteRecordsByDate(date) {
+            if (!confirm(`确定要删除${date}的所有记录吗?`)) return;
+            
+            workRecords = workRecords.filter(r => r.date !== date);
+            try {
+                await saveToDB(workRecords);
+                updateUI();
+                showToast('记录已删除!');
+            } catch (error) {
+                console.error('删除记录失败:', error);
+                showToast('删除失败，请重试', 'error');
+            }
+        }
+        
+        function exportToExcel() {
+            if (workRecords.length === 0) {
+                showToast('没有可导出的数据!', 'error');
+                return;
+            }
+            
+            // 按日期分组
+            const recordsByDate = {};
+            workRecords.forEach(record => {
+                if (!recordsByDate[record.date]) {
+                    recordsByDate[record.date] = [];
+                }
+                recordsByDate[record.date].push(record);
+            });
+            
+            // 创建CSV内容
+            let csv = '日期,时间,生产内容,生产产量,累计产量,目标差异\n';
+            
+            // 按日期排序
+            const sortedDates = Object.keys(recordsByDate).sort((a, b) => new Date(a) - new Date(b));
+            
+            sortedDates.forEach(date => {
+                const dateRecords = recordsByDate[date];
+                let dailyTotal = 0;
+                
+                dateRecords.forEach((record, index) => {
+                    dailyTotal += parseInt(record.output) || 0;
+                    const time = new Date(record.timestamp).toLocaleTimeString();
+                    const difference = dailyTotal - DAILY_TARGET;
+                    
+                    csv += `"${date}","${time}","${record.content}","${record.output}","${dailyTotal}","${difference}"\n`;
+                });
+            });
+            
+            // 创建下载链接
+            const blob = new Blob(["\uFEFF" + csv], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `生产记录_${new Date().toISOString().split('T')[0]}.csv`;
+            a.click();
+            URL.revokeObjectURL(url);
+            
+            showToast('数据已导出为CSV文件!');
+        }
+        
+        function importData() {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = '.json,.csv';
+            
+            input.onchange = e => {
+                const file = e.target.files[0];
+                if (!file) return;
+                
+                const reader = new FileReader();
+                reader.onload = async event => {
+                    try {
+                        if (file.name.endsWith('.csv')) {
+                            // CSV导入逻辑
+                            const csvData = event.target.result;
+                            const lines = csvData.split('\n');
+                            const headers = lines[0].split(',');
+                            
+                            let importedRecords = [];
+                            let currentDate = '';
+                            let dailyTotal = 0;
+                            
+                            for (let i = 1; i < lines.length; i++) {
+                                if (!lines[i]) continue;
+                                
+                                const values = lines[i].split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/);
+                                const record = {
+                                    date: values[0].replace(/"/g, ''),
+                                    content: values[2].replace(/"/g, ''),
+                                    output: parseInt(values[3].replace(/"/g, '') || 0),
+                                    hours: DAILY_HOURS,
+                                    timestamp: new Date(`${values[0]} ${values[1]}`).getTime() || new Date().getTime()
+                                };
+                                
+                                // 如果是新日期，重置累计
+                                if (record.date !== currentDate) {
+                                    currentDate = record.date;
+                                    dailyTotal = 0;
+                                }
+                                
+                                dailyTotal += record.output;
+                                importedRecords.push(record);
+                            }
+                            
+                            if (confirm(`即将导入 ${importedRecords.length} 条记录，是否合并到现有数据中？`)) {
+                                workRecords = workRecords.concat(importedRecords);
+                                try {
+                                    await saveToDB(workRecords);
+                                    updateUI();
+                                    showToast('数据导入成功!');
+                                } catch (error) {
+                                    console.error('导入数据失败:', error);
+                                    showToast('导入失败', 'error');
+                                    // 回滚
+                                    workRecords = workRecords.slice(0, workRecords.length - importedRecords.length);
+                                }
+                            }
+                        } else {
+                            // JSON导入逻辑
+                            const importedData = JSON.parse(event.target.result);
+                            
+                            if (!Array.isArray(importedData)) {
+                                throw new Error("导入的文件格式不正确");
+                            }
+                            
+                            if (confirm(`即将导入 ${importedData.length} 条记录，是否合并到现有数据中？`)) {
+                                workRecords = workRecords.concat(importedData);
+                                try {
+                                    await saveToDB(workRecords);
+                                    updateUI();
+                                    showToast('数据导入成功!');
+                                } catch (error) {
+                                    console.error('导入数据失败:', error);
+                                    showToast('导入失败', 'error');
+                                    // 回滚
+                                    workRecords = workRecords.slice(0, workRecords.length - importedData.length);
+                                }
+                            }
+                        }
+                    } catch(error) {
+                        showToast('导入失败: ' + error.message, 'error');
+                    }
+                };
+                
+                reader.readAsText(file);
+            };
+            
+            input.click();
+        }
+        
+        async function clearData() {
+            if (!confirm('确定要清空所有数据吗？此操作不可撤销！')) return;
+            
+            workRecords = [];
+            try {
+                await saveToDB(workRecords);
+                updateUI();
+                showToast('所有数据已清空!');
+            } catch (error) {
+                console.error('清空数据失败:', error);
+                showToast('清空失败，请重试', 'error');
+            }
+        }
+        
+        async function refreshData() {
+            try {
+                await loadFromDB();
+                updateUI();
+                showToast('数据已刷新!');
+            } catch (error) {
+                console.error('刷新数据失败:', error);
+                showToast('刷新失败', 'error');
+            }
+        }
+        
+        function showToast(message, type = 'success') {
+            // 创建一个toast元素
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            toast.innerHTML = `<i class="fas fa-${type === 'success' ? 'check-circle' : 'exclamation-circle'}"></i> ${message}`;
+            
+            // 添加到body
+            document.body.appendChild(toast);
+            
+            // 显示动画
+            setTimeout(() => {
+                toast.style.opacity = '1';
+                toast.style.transform = 'translateY(0)';
+            }, 10);
+            
+            // 3秒后自动消失
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                toast.style.transform = 'translateY(20px)';
+                setTimeout(() => {
+                    document.body.removeChild(toast);
+                }, 300);
+            }, 3000);
+        }
+    </script>
+    
+    <style>
+        /* Toast通知样式 */
+        .toast {
+            position: fixed;
+            bottom: 70px;
+            left: 50%;
+            transform: translateX(-50%) translateY(20px);
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 12px 20px;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            z-index: 1000;
+            opacity: 0;
+            transition: all 0.3s ease;
+            max-width: 80%;
+            text-align: center;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .toast.success {
+            background: #4CAF50;
+        }
+        
+        .toast.error {
+            background: #F44336;
+        }
+        
+        .toast i {
+            font-size: 1.1rem;
+        }
+    </style>
+</body>
+</html>
