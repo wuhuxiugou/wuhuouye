@@ -96,6 +96,28 @@
             opacity: 1;
         }
         
+        /* 同步状态指示器 */
+        #sync-indicator {
+            position: fixed;
+            bottom: 10px;
+            left: 10px;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background-color: #4CAF50;
+            z-index: 1000;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        }
+        
+        #sync-indicator.syncing {
+            background-color: #FFC107;
+            animation: pulse 1.5s infinite;
+        }
+        
+        #sync-indicator.error {
+            background-color: #F44336;
+        }
+        
         /* 主容器布局 */
         .main-container {
             display: flex;
@@ -575,6 +597,36 @@
             color: #1565c0;
         }
         
+        /* 冲突解决模态框 */
+        .conflict-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 2000;
+        }
+        
+        .conflict-content {
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            max-width: 90%;
+            max-height: 80vh;
+            overflow: auto;
+        }
+        
+        .conflict-item {
+            margin-bottom: 10px;
+            padding: 10px;
+            border: 1px solid #eee;
+            border-radius: 4px;
+        }
+        
         /* 动画 */
         @keyframes fadeIn {
             from { opacity: 0; }
@@ -641,6 +693,9 @@
 
     <!-- 通知提示 -->
     <div id="notification"></div>
+
+    <!-- 同步状态指示器 -->
+    <div id="sync-indicator" title="同步状态"></div>
 
     <div class="main-container">
         <!-- PC端侧边导航 -->
@@ -775,6 +830,8 @@
                             <button id="clearBtn" class="btn btn-sm" style="background: #ffebee; color: #d32f2f;">
                                 <i class="fas fa-trash-alt"></i> 清空数据
                             </button>
+                            <button id="backupBtn" class="btn btn-sm btn-outline"><i class="fas fa-copy"></i> 创建备份</button>
+                            <button id="restoreBtn" class="btn btn-sm btn-outline"><i class="fas fa-undo"></i> 恢复备份</button>
                         </div>
                         
                         <!-- 存储信息卡片 -->
@@ -792,7 +849,7 @@
                     </div>
                 </div>
                 
-                <!-- 新增同步设置卡片 -->
+                <!-- 数据同步卡片 -->
                 <div class="card">
                     <h2><i class="fas fa-sync-alt"></i> 数据同步</h2>
                     <div class="form-group">
@@ -810,6 +867,10 @@
                     </button>
                     <div id="syncStatus" class="sync-status sync-info">
                         同步状态: 未配置同步密钥
+                    </div>
+                    <div class="sync-details" style="margin-top: 10px; font-size: 0.8rem; color: var(--light-text);">
+                        <div>最后同步时间: <span id="lastSyncTime">从未同步</span></div>
+                        <div>同步记录数: <span id="syncRecordCount">0</span></div>
                     </div>
                 </div>
                 
@@ -847,13 +908,18 @@
 
     <script>
         // 配置常量
-        const SYNC_INTERVAL = 6000; // 60秒同步一次
+        const SYNC_INTERVAL = 60000; // 60秒同步一次
+        const MAX_RETRY_ATTEMPTS = 3;
+        const RETRY_DELAY = 2000; // 2秒重试延迟
+        const SYNC_DEBOUNCE = 5000; // 5秒防抖时间
         const DEFAULT_REPO = 'wudixiugou/data'; // 默认仓库名
         
         // 全局变量
         let syncTimer = null;
         let syncKey = localStorage.getItem('syncKey') || '';
         let githubRepo = localStorage.getItem('githubRepo') || DEFAULT_REPO;
+        let offlineQueue = JSON.parse(localStorage.getItem('offlineQueue')) || [];
+        let isSyncing = false;
         
         // 初始化应用
         document.addEventListener('DOMContentLoaded', function() {
@@ -865,9 +931,12 @@
                 }, 300);
             }, 300);
             
+            // 初始化同步指示器
+            updateSyncIndicator();
+            
             // 检查网络状态
-            window.addEventListener('online', updateOnlineStatus);
-            window.addEventListener('offline', updateOnlineStatus);
+            window.addEventListener('online', handleNetworkChange);
+            window.addEventListener('offline', handleNetworkChange);
             updateOnlineStatus();
             
             // 初始化数据（异步执行）
@@ -903,6 +972,8 @@
                 document.getElementById('exportBtn').addEventListener('click', exportData);
                 document.getElementById('clearBtn').addEventListener('click', clearData);
                 document.getElementById('exportHistoryBtn').addEventListener('click', exportHistoryToExcel);
+                document.getElementById('backupBtn').addEventListener('click', createBackup);
+                document.getElementById('restoreBtn').addEventListener('click', restoreBackup);
                 
                 // 同步设置
                 document.getElementById('syncKey').value = syncKey;
@@ -921,11 +992,39 @@
                             if (syncKey) {
                                 startSync();
                             }
+                            
+                            // 处理离线队列
+                            if (offlineQueue.length > 0 && navigator.onLine) {
+                                processOfflineQueue();
+                            }
                         }, 100);
                     }, 100);
                 }, 100);
             }, 100);
         });
+
+        // 网络状态变化处理
+        function handleNetworkChange() {
+            updateOnlineStatus();
+            
+            if (navigator.onLine) {
+                // 网络恢复时处理离线队列
+                if (offlineQueue.length > 0) {
+                    processOfflineQueue();
+                }
+                
+                // 如果配置了同步密钥，启动同步
+                if (syncKey) {
+                    startSync();
+                }
+            } else {
+                // 离线时停止同步
+                if (syncTimer) {
+                    clearInterval(syncTimer);
+                    syncTimer = null;
+                }
+            }
+        }
 
         // 更新存储信息
         function updateStorageInfo() {
@@ -979,9 +1078,22 @@
         }
 
         // 显示通知
-        function showNotification(message) {
+        function showNotification(message, type = 'success') {
             const notification = document.getElementById('notification');
             notification.textContent = message;
+            
+            // 根据类型设置背景色
+            notification.className = '';
+            if (type === 'success') {
+                notification.style.backgroundColor = '#4CAF50';
+            } else if (type === 'error') {
+                notification.style.backgroundColor = '#F44336';
+            } else if (type === 'warning') {
+                notification.style.backgroundColor = '#FF9800';
+            } else {
+                notification.style.backgroundColor = '#2196F3';
+            }
+            
             notification.classList.add('show');
             
             setTimeout(() => {
@@ -999,10 +1111,34 @@
             }
         }
         
+        // 更新同步指示器
+        function updateSyncIndicator() {
+            const indicator = document.getElementById('sync-indicator');
+            
+            if (!syncKey) {
+                indicator.className = 'error';
+                indicator.title = '同步未配置';
+                return;
+            }
+            
+            if (isSyncing) {
+                indicator.className = 'syncing';
+                indicator.title = '同步中...';
+            } else if (navigator.onLine) {
+                indicator.className = '';
+                indicator.title = '同步已激活';
+            } else {
+                indicator.className = 'error';
+                indicator.title = '离线状态 - 同步暂停';
+            }
+        }
+        
         // 初始化本地存储数据
         function initData() {
             if (!localStorage.getItem('productionData')) {
                 localStorage.setItem('productionData', JSON.stringify({
+                    _version: Date.now(),
+                    _lastSync: null,
                     settings: {
                         dailyTarget: 50000,
                         dailyHours: 8
@@ -1014,18 +1150,68 @@
         
         // 获取存储的数据
         function getData() {
-            return JSON.parse(localStorage.getItem('productionData'));
+            const data = JSON.parse(localStorage.getItem('productionData'));
+            
+            // 确保数据有版本信息
+            if (!data._version) {
+                data._version = Date.now();
+                data._lastSync = null;
+                saveData(data);
+            }
+            
+            return data;
         }
         
         // 保存数据到本地存储
         function saveData(data) {
+            // 更新版本和时间戳
+            data._version = Date.now();
+            data._lastSync = data._lastSync || null;
+            
             localStorage.setItem('productionData', JSON.stringify(data));
             updateStorageInfo();
             
-            // 如果有同步密钥，尝试同步
-            if (syncKey) {
-                syncData();
+            // 更新最后同步时间显示
+            if (data._lastSync) {
+                document.getElementById('lastSyncTime').textContent = new Date(data._lastSync).toLocaleString();
             }
+            
+            // 更新同步记录数
+            document.getElementById('syncRecordCount').textContent = data.records.length;
+            
+            // 如果有同步密钥，尝试同步
+            if (syncKey && navigator.onLine) {
+                syncData();
+            } else if (!navigator.onLine) {
+                // 离线时添加到队列
+                offlineQueue.push({
+                    type: 'save',
+                    timestamp: Date.now()
+                });
+                localStorage.setItem('offlineQueue', JSON.stringify(offlineQueue));
+            }
+        }
+        
+        // 处理离线队列
+        function processOfflineQueue() {
+            if (offlineQueue.length === 0 || !navigator.onLine) return;
+            
+            // 处理队列中的每个操作
+            while (offlineQueue.length > 0) {
+                const operation = offlineQueue.shift();
+                
+                switch (operation.type) {
+                    case 'save':
+                        // 离线时的保存操作，现在可以同步了
+                        if (syncKey) {
+                            syncData();
+                        }
+                        break;
+                    // 可以添加其他类型的操作
+                }
+            }
+            
+            localStorage.setItem('offlineQueue', JSON.stringify(offlineQueue));
         }
         
         // 保存同步设置
@@ -1034,12 +1220,12 @@
             const newRepo = document.getElementById('githubRepo').value.trim();
             
             if (!newKey) {
-                showNotification('请输入同步密钥');
+                showNotification('请输入同步密钥', 'error');
                 return;
             }
             
             if (!newRepo.includes('/')) {
-                showNotification('GitHub仓库格式应为: username/repo');
+                showNotification('GitHub仓库格式应为: username/repo', 'error');
                 return;
             }
             
@@ -1049,6 +1235,9 @@
             localStorage.setItem('syncKey', syncKey);
             localStorage.setItem('githubRepo', githubRepo);
             
+            // 更新同步指示器
+            updateSyncIndicator();
+            
             // 启动同步
             startSync();
             showNotification('同步设置已保存');
@@ -1056,6 +1245,11 @@
         
         // 启动自动同步
         function startSync() {
+            if (!navigator.onLine) {
+                updateSyncStatus('离线状态 - 同步暂停', 'error');
+                return;
+            }
+            
             if (syncTimer) clearInterval(syncTimer);
             
             // 立即同步一次
@@ -1064,51 +1258,105 @@
             // 设置定时同步
             syncTimer = setInterval(syncData, SYNC_INTERVAL);
             
-            updateSyncStatus('自动同步已启动，每30秒同步一次', 'info');
+            updateSyncStatus('自动同步已启动，每60秒同步一次', 'info');
         }
         
         // 手动同步
         function manualSync() {
+            if (!navigator.onLine) {
+                showNotification('当前处于离线状态，无法同步', 'error');
+                return;
+            }
+            
             syncData(true);
         }
         
         // 同步数据
         async function syncData(manual = false) {
-            if (!syncKey) return;
+            if (!syncKey || isSyncing) return;
             
-            updateSyncStatus(manual ? '正在手动同步...' : '正在自动同步...', 'info');
-            
-            try {
-                // 1. 从GitHub获取最新数据
-                const remoteData = await fetchRemoteData();
-                
-                // 2. 合并数据
-                const localData = getData();
-                const mergedData = mergeData(localData, remoteData);
-                
-                // 3. 保存合并后的数据
-                saveData(mergedData);
-                
-                // 4. 上传到GitHub
-                await uploadData(mergedData);
-                
-                // 更新UI
-                updateDailyStats();
-                loadHistory();
-                
-                updateSyncStatus('同步成功: ' + new Date().toLocaleTimeString(), 'success');
-                
-                if (manual) {
-                    showNotification('数据同步成功');
-                }
-            } catch (error) {
-                console.error('同步失败:', error);
-                updateSyncStatus('同步失败: ' + error.message, 'error');
-                
-                if (manual) {
-                    showNotification('同步失败: ' + error.message);
-                }
+            // 防抖处理 - 防止短时间内多次同步
+            if (this.syncDebounce) {
+                clearTimeout(this.syncDebounce);
             }
+            
+            this.syncDebounce = setTimeout(async () => {
+                isSyncing = true;
+                updateSyncIndicator();
+                
+                try {
+                    updateSyncStatus(manual ? '正在手动同步...' : '正在自动同步...', 'info');
+                    
+                    // 1. 获取本地数据并添加版本信息
+                    const localData = getData();
+                    
+                    // 2. 尝试从GitHub获取最新数据
+                    let remoteData;
+                    let retryCount = 0;
+                    
+                    while (retryCount < MAX_RETRY_ATTEMPTS) {
+                        try {
+                            remoteData = await fetchRemoteData();
+                            break;
+                        } catch (error) {
+                            retryCount++;
+                            if (retryCount >= MAX_RETRY_ATTEMPTS) throw error;
+                            await new Promise(resolve => setTimeout(resolve, RETRY_DELAY));
+                        }
+                    }
+                    
+                    // 3. 检查冲突
+                    const conflicts = findConflicts(localData, remoteData);
+                    if (conflicts.length > 0 && manual) {
+                        // 如果是手动同步，显示冲突解决UI
+                        showConflictResolutionUI(conflicts);
+                        return;
+                    }
+                    
+                    // 4. 合并数据
+                    const mergedData = mergeData(localData, remoteData);
+                    
+                    // 5. 备份当前数据
+                    localStorage.setItem('productionData_backup', JSON.stringify(localData));
+                    
+                    // 6. 保存合并后的数据
+                    saveData(mergedData);
+                    
+                    // 7. 上传到GitHub
+                    await uploadData(mergedData);
+                    
+                    // 8. 更新UI
+                    updateDailyStats();
+                    loadHistory();
+                    
+                    updateSyncStatus('同步成功: ' + new Date().toLocaleTimeString(), 'success');
+                    
+                    if (manual) {
+                        showNotification('数据同步成功');
+                    }
+                } catch (error) {
+                    console.error('同步失败:', error);
+                    
+                    // 尝试恢复备份
+                    try {
+                        const backup = localStorage.getItem('productionData_backup');
+                        if (backup) {
+                            localStorage.setItem('productionData', backup);
+                        }
+                    } catch (e) {
+                        console.error('恢复备份失败:', e);
+                    }
+                    
+                    updateSyncStatus('同步失败: ' + error.message, 'error');
+                    
+                    if (manual) {
+                        showNotification('同步失败: ' + error.message, 'error');
+                    }
+                } finally {
+                    isSyncing = false;
+                    updateSyncIndicator();
+                }
+            }, manual ? 0 : SYNC_DEBOUNCE);
         }
         
         // 从GitHub获取数据
@@ -1124,7 +1372,12 @@
             if (!response.ok) {
                 // 如果文件不存在，返回空数据
                 if (response.status === 404) {
-                    return { settings: { dailyTarget: 50000, dailyHours: 8 }, records: [] };
+                    return { 
+                        _version: 0,
+                        _lastSync: null,
+                        settings: { dailyTarget: 50000, dailyHours: 8 }, 
+                        records: [] 
+                    };
                 }
                 throw new Error('获取远程数据失败: ' + response.status);
             }
@@ -1144,7 +1397,9 @@
             try {
                 const existing = await fetchRemoteData();
                 sha = existing.sha;
-            } catch (e) {}
+            } catch (e) {
+                console.log('无法获取现有文件的SHA，可能是第一次上传');
+            }
             
             const response = await fetch(url, {
                 method: 'PUT',
@@ -1154,7 +1409,7 @@
                     'Authorization': `token ${syncKey}`
                 },
                 body: JSON.stringify({
-                    message: 'Update production data',
+                    message: 'Update production data ' + new Date().toLocaleString(),
                     content: content,
                     branch: syncKey,
                     sha: sha
@@ -1164,28 +1419,141 @@
             if (!response.ok) {
                 throw new Error('上传数据失败: ' + response.status);
             }
+            
+            // 更新最后同步时间
+            const localData = getData();
+            localData._lastSync = new Date().toISOString();
+            saveData(localData);
+        }
+        
+        // 查找冲突
+        function findConflicts(local, remote) {
+            if (!remote || !remote.records) return [];
+            
+            const conflicts = [];
+            const localRecordsMap = new Map(local.records.map(r => [r.id, r]));
+            
+            remote.records.forEach(remoteRecord => {
+                const localRecord = localRecordsMap.get(remoteRecord.id);
+                if (localRecord && 
+                    localRecord.timestamp !== remoteRecord.timestamp && 
+                    (localRecord.output !== remoteRecord.output || 
+                     localRecord.content !== remoteRecord.content)) {
+                    conflicts.push({
+                        id: remoteRecord.id,
+                        date: remoteRecord.date,
+                        time: remoteRecord.time,
+                        content: remoteRecord.content,
+                        local: localRecord,
+                        remote: remoteRecord
+                    });
+                }
+            });
+            
+            return conflicts;
+        }
+        
+        // 显示冲突解决UI
+        function showConflictResolutionUI(conflicts) {
+            // 创建一个模态框显示冲突
+            const modal = document.createElement('div');
+            modal.className = 'conflict-modal';
+            
+            // 创建内容容器
+            const content = document.createElement('div');
+            content.className = 'conflict-content';
+            
+            content.innerHTML = `
+                <h2 style="color: var(--primary-color); margin-bottom: 15px;">数据冲突</h2>
+                <p>发现 ${conflicts.length} 条冲突记录，请选择要保留的版本：</p>
+                <div id="conflictList" style="margin: 15px 0; max-height: 300px; overflow-y: auto;"></div>
+                <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 15px;">
+                    <button id="resolveKeepLocal" class="btn btn-sm">保留我的更改</button>
+                    <button id="resolveKeepRemote" class="btn btn-sm btn-outline">使用远程更改</button>
+                </div>
+            `;
+            
+            // 填充冲突列表
+            const conflictList = content.querySelector('#conflictList');
+            conflicts.forEach(conflict => {
+                const conflictItem = document.createElement('div');
+                conflictItem.className = 'conflict-item';
+                
+                conflictItem.innerHTML = `
+                    <div style="font-weight: bold; margin-bottom: 5px;">${conflict.content} (${formatDate(conflict.date)} ${conflict.time})</div>
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+                        <div>
+                            <span style="color: var(--primary-color);">本地:</span> 
+                            ${conflict.local.output} 件 (${new Date(conflict.local.timestamp).toLocaleString()})
+                        </div>
+                        <div>
+                            <span style="color: var(--secondary-color);">远程:</span> 
+                            ${conflict.remote.output} 件 (${new Date(conflict.remote.timestamp).toLocaleString()})
+                        </div>
+                    </div>
+                `;
+                
+                conflictList.appendChild(conflictItem);
+            });
+            
+            modal.appendChild(content);
+            document.body.appendChild(modal);
+            
+            // 添加事件监听器
+            content.querySelector('#resolveKeepLocal').addEventListener('click', () => {
+                document.body.removeChild(modal);
+                resolveConflicts(conflicts, 'local');
+            });
+            
+            content.querySelector('#resolveKeepRemote').addEventListener('click', () => {
+                document.body.removeChild(modal);
+                resolveConflicts(conflicts, 'remote');
+            });
+        }
+        
+        // 解决冲突
+        function resolveConflicts(conflicts, resolution) {
+            const data = getData();
+            const recordsMap = new Map(data.records.map(r => [r.id, r]));
+            
+            conflicts.forEach(conflict => {
+                if (resolution === 'local') {
+                    // 保留本地版本，无需修改
+                } else {
+                    // 使用远程版本
+                    recordsMap.set(conflict.id, conflict.remote);
+                }
+            });
+            
+            // 更新数据
+            data.records = Array.from(recordsMap.values());
+            saveData(data);
+            
+            // 重新同步
+            syncData(true);
         }
         
         // 合并数据
         function mergeData(local, remote) {
+            if (!remote || !remote.records) return local;
+            
             // 合并设置 - 以本地设置为准
             const settings = local.settings || remote.settings || { dailyTarget: 50000, dailyHours: 8 };
-            
-            // 合并记录 - 基于时间戳
-            const localRecords = local.records || [];
-            const remoteRecords = remote.records || [];
             
             // 创建记录映射
             const recordMap = new Map();
             
-            // 添加远程记录
-            remoteRecords.forEach(record => {
+            // 先添加远程记录
+            (remote.records || []).forEach(record => {
                 recordMap.set(record.id, record);
             });
             
-            // 添加或更新本地记录
-            localRecords.forEach(record => {
-                recordMap.set(record.id, record);
+            // 再添加或更新本地记录（本地记录优先级更高）
+            (local.records || []).forEach(record => {
+                const existing = recordMap.get(record.id);
+                if (!existing || record.timestamp > existing.timestamp) {
+                    recordMap.set(record.id, record);
+                }
             });
             
             // 转换为数组并排序
@@ -1193,6 +1561,8 @@
             mergedRecords.sort((a, b) => a.timestamp - b.timestamp);
             
             return {
+                _version: Date.now(), // 新版本号
+                _lastSync: new Date().toISOString(),
                 settings: settings,
                 records: mergedRecords
             };
@@ -1215,6 +1585,32 @@
                     default:
                         statusElement.classList.add('sync-info');
                 }
+            }
+        }
+        
+        // 创建数据备份
+        function createBackup() {
+            const data = getData();
+            localStorage.setItem('productionData_backup', JSON.stringify(data));
+            showNotification('数据备份已创建');
+        }
+        
+        // 恢复数据备份
+        function restoreBackup() {
+            const backup = localStorage.getItem('productionData_backup');
+            if (!backup) {
+                showNotification('没有找到备份数据', 'error');
+                return;
+            }
+            
+            if (confirm('确定要恢复备份数据吗？当前数据将被覆盖。')) {
+                localStorage.setItem('productionData', backup);
+                showNotification('数据已从备份恢复');
+                
+                // 刷新显示
+                updateDailyStats();
+                loadHistory();
+                updateStorageInfo();
             }
         }
         
@@ -1286,7 +1682,7 @@
             const output = parseInt(document.getElementById('workOutput').value);
             
             if (!date || !time || !content || isNaN(output)) {
-                showNotification('请填写完整的生产信息');
+                showNotification('请填写完整的生产信息', 'error');
                 return;
             }
             
@@ -1504,7 +1900,7 @@
                 });
             } catch (e) {
                 console.error('加载历史记录失败:', e);
-                showNotification('加载历史记录失败');
+                showNotification('加载历史记录失败', 'error');
             }
         }
         
@@ -1553,12 +1949,12 @@
             const dailyHours = parseInt(document.getElementById('dailyHours').value);
             
             if (isNaN(dailyTarget)) {
-                showNotification('请输入有效的目标产量');
+                showNotification('请输入有效的目标产量', 'error');
                 return;
             }
             
             if (isNaN(dailyHours)) {
-                showNotification('请输入有效的工作时间');
+                showNotification('请输入有效的工作时间', 'error');
                 return;
             }
             
