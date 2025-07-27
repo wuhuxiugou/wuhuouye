@@ -13,27 +13,31 @@
             margin: 0;
             padding: 0;
             box-sizing: border-box;
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            font-family: 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
             -webkit-tap-highlight-color: transparent;
         }
         
         :root {
             --primary-color: #1a2a6c;
             --secondary-color: #b21f1f;
-            --text-color: #333;
-            --light-text: #777;
-            --bg-color: #f5f5f9;
+            --accent-color: #8338ec;
+            --text-color: #2d3748;
+            --light-text: #718096;
+            --bg-color: #f8fafc;
             --card-bg: #ffffff;
-            --border-radius: 12px;
-            --box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-            --nav-height: 60px;
-            --side-nav-width: 80px;
+            --border-radius: 16px;
+            --box-shadow: 0 8px 30px rgba(0, 0, 0, 0.08);
+            --nav-height: 70px;
+            --side-nav-width: 90px;
+            --success-color: #38b2ac;
+            --warning-color: #ffb142;
+            --danger-color: #ff5252;
         }
         
         body {
             background: var(--bg-color);
             color: var(--text-color);
-            line-height: 1.5;
+            line-height: 1.6;
             min-height: 100vh;
             -webkit-text-size-adjust: 100%;
             overflow-x: hidden;
@@ -52,7 +56,64 @@
             justify-content: center;
             align-items: center;
             z-index: 9999;
-            transition: opacity 0.3s;
+            transition: opacity 0.5s ease-out;
+        }
+        
+        #splash-screen h1 {
+            color: white;
+            font-size: 2.2rem;
+            margin-top: 20px;
+            text-shadow: 0 2px 10px rgba(0,0,0,0.2);
+        }
+        
+        #splash-screen p {
+            color: rgba(255,255,255,0.9);
+            margin-top: 10px;
+            font-size: 1.1rem;
+        }
+        
+        .splash-logo {
+            width: 100px;
+            height: 100px;
+            background: rgba(255,255,255,0.2);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            animation: pulse 2s infinite;
+        }
+        
+        .splash-logo i {
+            font-size: 3.5rem;
+            color: white;
+        }
+        
+        /* 启动进度条 */
+        .splash-progress {
+            width: 80%;
+            max-width: 300px;
+            height: 8px;
+            background: rgba(255,255,255,0.3);
+            border-radius: 4px;
+            margin-top: 30px;
+            overflow: hidden;
+            position: relative;
+        }
+        
+        .splash-progress-bar {
+            height: 100%;
+            width: 0%;
+            background: white;
+            border-radius: 4px;
+            transition: width 0.5s ease;
+        }
+        
+        .splash-status {
+            color: rgba(255,255,255,0.8);
+            margin-top: 15px;
+            font-size: 0.9rem;
+            text-align: center;
+            min-height: 1.5em;
         }
         
         /* 离线状态提示 */
@@ -64,11 +125,15 @@
             background: #ff9800;
             color: white;
             text-align: center;
-            padding: 8px;
-            font-size: 0.85rem;
+            padding: 12px;
+            font-size: 0.9rem;
             z-index: 1000;
             transform: translateY(-100%);
-            transition: transform 0.3s;
+            transition: transform 0.3s cubic-bezier(0.68, -0.55, 0.27, 1.55);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
         }
         
         #offline-status.show {
@@ -78,17 +143,22 @@
         /* 通知提示样式 */
         #notification {
             position: fixed;
-            bottom: 20px;
-            right: 20px;
+            bottom: 25px;
+            right: 25px;
             background: #4CAF50;
             color: white;
-            padding: 15px 20px;
-            border-radius: 4px;
-            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            padding: 16px 24px;
+            border-radius: 12px;
+            box-shadow: 0 6px 20px rgba(0,0,0,0.15);
             z-index: 1000;
             transform: translateY(100px);
             opacity: 0;
-            transition: all 0.3s ease;
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            max-width: 350px;
+            font-size: 0.95rem;
+            display: flex;
+            align-items: center;
+            gap: 10px;
         }
         
         #notification.show {
@@ -96,26 +166,16 @@
             opacity: 1;
         }
         
-        /* 同步状态指示器 */
-        #sync-indicator {
-            position: fixed;
-            bottom: 10px;
-            left: 10px;
-            width: 20px;
-            height: 20px;
-            border-radius: 50%;
-            background-color: #4CAF50;
-            z-index: 1000;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        #notification.error {
+            background: var(--danger-color);
         }
         
-        #sync-indicator.syncing {
-            background-color: #FFC107;
-            animation: pulse 1.5s infinite;
+        #notification.warning {
+            background: var(--warning-color);
         }
         
-        #sync-indicator.error {
-            background-color: #F44336;
+        #notification.info {
+            background: #2d98da;
         }
         
         /* 主容器布局 */
@@ -133,38 +193,62 @@
             top: 0;
             height: 100vh;
             width: var(--side-nav-width);
-            background: white;
-            box-shadow: 2px 0 10px rgba(0,0,0,0.1);
+            background: linear-gradient(180deg, var(--primary-color), var(--secondary-color));
+            box-shadow: 4px 0 20px rgba(0,0,0,0.1);
             z-index: 100;
+            padding-top: 20px;
         }
         
         .side-nav-item {
-            padding: 20px 10px;
+            padding: 22px 10px;
             text-align: center;
-            color: var(--light-text);
-            transition: all 0.3s;
+            color: rgba(255,255,255,0.7);
+            transition: all 0.3s ease;
             text-decoration: none;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .side-nav-item::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 4px;
+            height: 0;
+            background: white;
+            transition: height 0.3s ease;
         }
         
         .side-nav-item.active {
-            color: var(--primary-color);
-            background: rgba(26, 42, 108, 0.1);
+            color: white;
+            background: rgba(255,255,255,0.15);
+        }
+        
+        .side-nav-item.active::before {
+            height: 100%;
         }
         
         .side-nav-item i {
-            font-size: 1.5rem;
-            margin-bottom: 5px;
+            font-size: 1.8rem;
+            margin-bottom: 8px;
             display: block;
+            transition: transform 0.3s;
+        }
+        
+        .side-nav-item:hover i {
+            transform: translateY(-3px);
         }
         
         .side-nav-item span {
-            font-size: 0.7rem;
+            font-size: 0.8rem;
+            font-weight: 500;
         }
         
         /* 应用内容区域 */
         .app-content {
             flex: 1;
-            padding: 15px;
+            padding: 20px;
             transition: margin-left 0.3s;
             min-height: 100vh;
         }
@@ -174,8 +258,8 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            padding: 15px 0;
-            margin-bottom: 15px;
+            padding: 20px 0;
+            margin-bottom: 20px;
             position: sticky;
             top: 0;
             background: var(--bg-color);
@@ -183,9 +267,17 @@
         }
         
         .app-header h1 {
-            font-size: 1.5rem;
+            font-size: 1.8rem;
             color: var(--primary-color);
-            font-weight: 600;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        .header-actions {
+            display: flex;
+            gap: 12px;
         }
         
         /* 卡片样式 */
@@ -193,87 +285,92 @@
             background: var(--card-bg);
             border-radius: var(--border-radius);
             box-shadow: var(--box-shadow);
-            padding: 18px;
-            margin-bottom: 15px;
-            transition: transform 0.2s;
+            padding: 24px;
+            margin-bottom: 20px;
+            transition: transform 0.3s, box-shadow 0.3s;
+            animation: cardAppear 0.6s ease-out;
+            transform-origin: top center;
+            opacity: 0;
+            animation-fill-mode: forwards;
         }
+        
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.12);
+        }
+        
+        .card:nth-child(1) { animation-delay: 0.1s; }
+        .card:nth-child(2) { animation-delay: 0.2s; }
+        .card:nth-child(3) { animation-delay: 0.3s; }
+        .card:nth-child(4) { animation-delay: 0.4s; }
         
         .card h2 {
             color: var(--primary-color);
-            font-size: 1.2rem;
-            margin-bottom: 15px;
+            font-size: 1.4rem;
+            margin-bottom: 20px;
             display: flex;
             align-items: center;
-            gap: 8px;
+            gap: 10px;
+            font-weight: 600;
+            padding-bottom: 12px;
+            border-bottom: 1px solid rgba(26, 42, 108, 0.1);
         }
         
         .card h2 i {
             color: var(--secondary-color);
-        }
-        
-        /* 存储信息卡片 */
-        .storage-info {
-            margin-top: 20px;
-            background: #f9f9f9;
-            border-radius: var(--border-radius);
-            padding: 15px;
-        }
-        
-        .storage-progress {
-            height: 10px;
-            background: #e0e0e0;
-            border-radius: 5px;
-            margin: 10px 0;
-            overflow: hidden;
-        }
-        
-        .storage-progress-bar {
-            height: 100%;
-            background: linear-gradient(90deg, var(--primary-color), var(--secondary-color));
-            border-radius: 5px;
-            transition: width 0.3s;
-        }
-        
-        .storage-details {
-            display: flex;
-            justify-content: space-between;
-            font-size: 0.85rem;
-            color: var(--light-text);
+            font-size: 1.6rem;
         }
         
         /* 表单元素 */
         .form-group {
-            margin-bottom: 15px;
+            margin-bottom: 20px;
         }
         
         .form-group label {
             display: block;
-            margin-bottom: 6px;
-            font-size: 0.9rem;
+            margin-bottom: 8px;
+            font-size: 0.95rem;
             color: var(--text-color);
             font-weight: 500;
         }
         
         .form-control {
             width: 100%;
-            padding: 12px 15px;
-            border: 1px solid #ddd;
-            border-radius: 8px;
+            padding: 14px 18px;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
             font-size: 1rem;
-            background: #f9f9f9;
+            background: #f9fafb;
             -webkit-appearance: none;
+            transition: all 0.3s;
         }
         
         .form-control:focus {
             border-color: var(--primary-color);
             outline: none;
             background: #fff;
+            box-shadow: 0 0 0 3px rgba(26, 42, 108, 0.15);
+        }
+        
+        /* 产品名称输入组 */
+        .product-name-group {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .product-name-group .form-control {
+            flex: 1;
+        }
+        
+        .product-name-group .btn-sm {
+            width: auto;
+            padding: 0 12px;
         }
         
         /* 时间输入样式 */
         .time-input-group {
             display: flex;
-            gap: 10px;
+            gap: 12px;
         }
         
         .time-input-group .form-control {
@@ -283,97 +380,178 @@
         /* 按钮样式 */
         .btn {
             display: inline-block;
-            padding: 14px;
+            padding: 16px;
             background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
             color: white;
             border: none;
-            border-radius: 8px;
-            font-size: 1rem;
-            font-weight: 500;
+            border-radius: 12px;
+            font-size: 1.05rem;
+            font-weight: 600;
             text-align: center;
             cursor: pointer;
             width: 100%;
-            transition: all 0.2s;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .btn::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+            transition: 0.6s;
+        }
+        
+        .btn:hover::after {
+            left: 100%;
         }
         
         .btn-sm {
-            padding: 8px 12px;
-            font-size: 0.85rem;
+            padding: 10px 16px;
+            font-size: 0.9rem;
             width: auto;
+            border-radius: 10px;
         }
         
         .btn-outline {
             background: transparent;
-            border: 1px solid var(--primary-color);
+            border: 2px solid var(--primary-color);
             color: var(--primary-color);
+            font-weight: 600;
+        }
+        
+        .btn-outline:hover {
+            background: rgba(26, 42, 108, 0.08);
         }
         
         /* 统计卡片 */
         .stats-container {
             display: grid;
             grid-template-columns: repeat(2, 1fr);
-            gap: 12px;
-            margin-bottom: 15px;
+            gap: 16px;
+            margin-bottom: 20px;
         }
         
         .stat-card {
             background: var(--card-bg);
             border-radius: var(--border-radius);
-            padding: 15px;
+            padding: 20px;
             text-align: center;
             box-shadow: var(--box-shadow);
+            transition: transform 0.3s;
+            animation: statCardAppear 0.5s ease-out;
+            opacity: 0;
+            animation-fill-mode: forwards;
+        }
+        
+        .stat-card:nth-child(1) { animation-delay: 0.15s; }
+        .stat-card:nth-child(2) { animation-delay: 0.25s; }
+        .stat-card:nth-child(3) { animation-delay: 0.35s; }
+        .stat-card:nth-child(4) { animation-delay: 0.45s; }
+        
+        .stat-card:hover {
+            transform: translateY(-5px);
         }
         
         .stat-card i {
-            font-size: 1.8rem;
+            font-size: 2.2rem;
             color: var(--primary-color);
-            margin-bottom: 10px;
+            margin-bottom: 14px;
+            background: rgba(26, 42, 108, 0.1);
+            width: 70px;
+            height: 70px;
+            line-height: 70px;
+            border-radius: 50%;
+            margin: 0 auto 15px;
         }
         
         .stat-card h3 {
-            font-size: 1.4rem;
-            margin-bottom: 3px;
+            font-size: 1.8rem;
+            margin-bottom: 5px;
             color: var(--secondary-color);
+            font-weight: 700;
         }
         
         .stat-card p {
             color: var(--light-text);
-            font-size: 0.85rem;
+            font-size: 0.9rem;
+            font-weight: 500;
         }
         
         /* 进度条 */
         .progress-container {
             width: 100%;
-            background-color: #f1f1f1;
-            border-radius: 8px;
-            margin: 10px 0;
-            height: 16px;
+            background-color: #edf2f7;
+            border-radius: 12px;
+            margin: 15px 0;
+            height: 18px;
+            overflow: hidden;
         }
         
         .progress-bar {
             height: 100%;
-            border-radius: 8px;
+            border-radius: 12px;
             background: linear-gradient(90deg, var(--primary-color), var(--secondary-color));
             text-align: center;
-            line-height: 16px;
+            line-height: 18px;
             color: white;
-            font-size: 0.7rem;
-            transition: width 0.3s;
+            font-size: 0.75rem;
+            font-weight: 600;
+            transition: width 0.6s cubic-bezier(0.22, 0.61, 0.36, 1);
+            box-shadow: 0 2px 10px rgba(26, 42, 108, 0.3);
+        }
+        
+        /* 加班时间样式 */
+        .overtime-info {
+            background: #f9fafb;
+            border-radius: 12px;
+            padding: 16px;
+            margin-top: 20px;
+            border: 1px solid #edf2f7;
+        }
+        
+        .overtime-info h3 {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 15px;
+            color: var(--primary-color);
+        }
+        
+        .overtime-info h3 i {
+            color: var(--secondary-color);
+        }
+        
+        .overtime-details {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.9rem;
+            color: var(--light-text);
+            font-weight: 500;
+        }
+        
+        .overtime-value {
+            color: var(--danger-color);
+            font-weight: 600;
         }
         
         /* 差异显示样式 */
         .over-target {
-            color: #4CAF50;
+            color: var(--success-color);
             font-weight: bold;
         }
         
         .under-target {
-            color: #F44336;
+            color: var(--danger-color);
             font-weight: bold;
         }
         
         .target-met {
-            color: #2196F3;
+            color: #2d98da;
             font-weight: bold;
         }
         
@@ -381,73 +559,83 @@
         .work-history {
             background: var(--card-bg);
             border-radius: var(--border-radius);
-            padding: 15px;
+            padding: 20px;
             box-shadow: var(--box-shadow);
-            margin-bottom: 20px;
+            margin-bottom: 25px;
+            animation: fadeIn 0.5s ease-out;
         }
         
         .history-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 15px;
+            margin-bottom: 20px;
         }
         
         .history-header h2 {
-            font-size: 1.2rem;
+            font-size: 1.4rem;
             color: var(--primary-color);
             display: flex;
             align-items: center;
-            gap: 8px;
+            gap: 10px;
+            font-weight: 600;
         }
         
         table {
             width: 100%;
             border-collapse: collapse;
-            font-size: 0.9rem;
+            font-size: 0.95rem;
         }
         
         th, td {
-            padding: 12px 8px;
+            padding: 14px 12px;
             text-align: left;
-            border-bottom: 1px solid #eee;
+            border-bottom: 1px solid #edf2f7;
         }
         
         th {
-            background-color: #f8f9fa;
+            background-color: #f8fafc;
             color: var(--primary-color);
-            font-weight: 500;
-            font-size: 0.85rem;
+            font-weight: 600;
+            font-size: 0.9rem;
         }
         
         .date-row {
             cursor: pointer;
-            background-color: #f8f9fa !important;
+            background-color: #f8fafc !important;
+            transition: background-color 0.2s;
+        }
+        
+        .date-row:hover {
+            background-color: #f1f5f9 !important;
         }
         
         .detail-row {
             display: none;
         }
         
-        /* 详细记录表格样式 - 修改了对齐方式 */
+        /* 详细记录表格样式 */
         .detail-table {
             width: 100%;
             border-collapse: collapse;
-            margin-top: 10px;
+            margin-top: 15px;
+            background: #f9fafb;
+            border-radius: 12px;
+            overflow: hidden;
         }
         
         .detail-table th {
-            background-color: #f5f5f5;
-            padding: 8px 12px;
+            background-color: #edf2f7;
+            padding: 12px 16px;
             text-align: left;
-            font-weight: 500;
-            font-size: 0.85rem;
-            color: #666;
+            font-weight: 600;
+            font-size: 0.9rem;
+            color: var(--primary-color);
         }
         
         .detail-table td {
-            padding: 10px 12px;
-            border-bottom: 1px solid #eee;
+            padding: 12px 16px;
+            border-bottom: 1px solid #e2e8f0;
             vertical-align: middle;
         }
         
@@ -465,37 +653,48 @@
         .detail-delete-btn {
             background: none;
             border: none;
-            color: #f44336;
+            color: #ff5252;
             cursor: pointer;
-            font-size: 0.9rem;
-            padding: 5px 8px;
-            opacity: 0.7;
-            transition: opacity 0.2s;
+            font-size: 0.95rem;
+            padding: 6px 12px;
+            border-radius: 8px;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-weight: 500;
+        }
+        
+        .detail-delete-btn:hover {
+            background: rgba(255, 82, 82, 0.1);
+        }
+        
+        .actions {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .action-btn {
+            padding: 8px 12px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            font-weight: 500;
+            transition: all 0.2s;
             display: flex;
             align-items: center;
             gap: 5px;
         }
         
-        .detail-delete-btn:hover {
-            opacity: 1;
-        }
-        
-        .actions {
-            display: flex;
-            gap: 8px;
-        }
-        
-        .action-btn {
-            padding: 5px 8px;
-            border: none;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 0.8rem;
-        }
-        
         .action-btn.delete {
-            background: #ffebee;
-            color: #d32f2f;
+            background: #fff5f5;
+            color: #ff5252;
+            border: 1px solid #ffe2e2;
+        }
+        
+        .action-btn.delete:hover {
+            background: #ffebeb;
         }
         
         /* 移动端底部导航栏 */
@@ -509,8 +708,10 @@
             display: flex;
             justify-content: space-around;
             align-items: center;
-            box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.08);
+            box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.08);
             z-index: 100;
+            border-top-left-radius: 20px;
+            border-top-right-radius: 20px;
         }
         
         .nav-item {
@@ -520,26 +721,34 @@
             justify-content: center;
             color: var(--light-text);
             text-decoration: none;
-            font-size: 0.7rem;
+            font-size: 0.75rem;
             padding: 8px;
             flex: 1;
-            transition: all 0.2s;
+            transition: all 0.3s;
+            border-radius: 16px;
+            margin: 0 5px;
         }
         
         .nav-item i {
-            font-size: 1.2rem;
-            margin-bottom: 3px;
+            font-size: 1.4rem;
+            margin-bottom: 5px;
+            transition: transform 0.3s;
         }
         
         .nav-item.active {
             color: var(--primary-color);
-            transform: translateY(-2px);
+            background: rgba(26, 42, 108, 0.1);
+            transform: translateY(-8px);
+        }
+        
+        .nav-item.active i {
+            transform: translateY(-5px);
         }
         
         /* 页面切换动画 */
         .page {
             display: none;
-            animation: fadeIn 0.3s ease;
+            animation: fadeIn 0.5s ease;
         }
         
         .page.active {
@@ -548,95 +757,77 @@
         
         /* 数据备份区域 */
         .backup-section {
-            background: #f9f9f9;
-            border-radius: 8px;
-            padding: 12px;
-            margin-top: 15px;
+            background: #f9fafb;
+            border-radius: 12px;
+            padding: 16px;
+            margin-top: 20px;
+            border: 1px dashed #e2e8f0;
         }
         
         .backup-actions {
             display: flex;
-            gap: 8px;
-            margin-top: 10px;
+            gap: 12px;
+            margin-top: 15px;
             flex-wrap: wrap;
         }
         
         /* 空状态 */
         .empty-state {
             text-align: center;
-            padding: 30px 0;
+            padding: 40px 0;
             color: var(--light-text);
         }
         
         .empty-state i {
-            font-size: 2.5rem;
-            color: #ddd;
-            margin-bottom: 15px;
+            font-size: 3rem;
+            color: #cbd5e0;
+            margin-bottom: 20px;
+            opacity: 0.6;
         }
         
-        /* 同步状态样式 */
-        .sync-status {
-            margin-top: 15px;
-            padding: 10px;
-            border-radius: var(--border-radius);
-            font-size: 0.9rem;
+        .empty-state p {
+            font-size: 1.05rem;
         }
         
-        .sync-success {
-            background-color: #e8f5e9;
-            color: #2e7d32;
-        }
-        
-        .sync-error {
-            background-color: #ffebee;
-            color: #c62828;
-        }
-        
-        .sync-info {
-            background-color: #e3f2fd;
-            color: #1565c0;
-        }
-        
-        /* 冲突解决模态框 */
-        .conflict-modal {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background-color: rgba(0,0,0,0.5);
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            z-index: 2000;
-        }
-        
-        .conflict-content {
-            background-color: white;
-            padding: 20px;
-            border-radius: 8px;
-            max-width: 90%;
-            max-height: 80vh;
-            overflow: auto;
-        }
-        
-        .conflict-item {
-            margin-bottom: 10px;
-            padding: 10px;
-            border: 1px solid #eee;
-            border-radius: 4px;
+        /* 首页时间显示样式 */
+        .current-time {
+            font-size: 1.1rem;
+            color: var(--light-text);
+            margin-left: 12px;
+            display: inline-block;
+            font-weight: 500;
+            background: rgba(26, 42, 108, 0.08);
+            padding: 6px 12px;
+            border-radius: 12px;
         }
         
         /* 动画 */
         @keyframes fadeIn {
-            from { opacity: 0; }
-            to { opacity: 1; }
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        @keyframes cardAppear {
+            0% { opacity: 0; transform: scale(0.95) translateY(20px); }
+            100% { opacity: 1; transform: scale(1) translateY(0); }
+        }
+        
+        @keyframes statCardAppear {
+            0% { opacity: 0; transform: translateY(30px); }
+            100% { opacity: 1; transform: translateY(0); }
         }
         
         @keyframes pulse {
-            0% { transform: scale(1); }
-            50% { transform: scale(1.05); }
-            100% { transform: scale(1); }
+            0% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.05); opacity: 0.9; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        
+        @keyframes ripple {
+            to {
+                transform: scale(4);
+                opacity: 0;
+            }
         }
         
         /* PC端布局 */
@@ -675,27 +866,59 @@
             .app-content {
                 padding-bottom: var(--nav-height);
             }
+            
+            .app-header {
+                padding: 15px 0;
+            }
+            
+            .app-header h1 {
+                font-size: 1.5rem;
+            }
+            
+            .card {
+                padding: 20px 18px;
+            }
+            
+            /* 优化移动端历史记录显示 */
+            .detail-table {
+                display: block;
+                overflow-x: auto;
+                white-space: nowrap;
+            }
+            
+            .detail-table th,
+            .detail-table td {
+                min-width: 100px;
+            }
         }
     </style>
 </head>
 <body>
     <!-- 启动画面 -->
     <div id="splash-screen">
-        <i class="fas fa-industry" style="font-size: 3rem; color: white;"></i>
+        <div class="splash-logo">
+            <i class="fas fa-industry"></i>
+        </div>
         <h1>生产统计系统</h1>
-        <p>加载中...</p>
+        <p id="splash-status">正在初始化系统...</p>
+        
+        <div class="splash-progress">
+            <div id="splash-progress-bar" class="splash-progress-bar"></div>
+        </div>
+        <div id="splash-message" class="splash-status">请稍候</div>
+        
+        <button id="force-continue-btn" class="btn btn-outline" style="margin-top: 20px; background: rgba(255,255,255,0.2); color: white; display: none;">
+            继续进入应用
+        </button>
     </div>
 
     <!-- 离线状态提示 -->
     <div id="offline-status">
-        <i class="fas fa-wifi-slash"></i> 当前处于离线状态，数据将在恢复网络后同步
+        <i class="fas fa-wifi-slash"></i> 当前处于离线状态
     </div>
 
     <!-- 通知提示 -->
     <div id="notification"></div>
-
-    <!-- 同步状态指示器 -->
-    <div id="sync-indicator" title="同步状态"></div>
 
     <div class="main-container">
         <!-- PC端侧边导航 -->
@@ -719,9 +942,9 @@
             <!-- 首页 -->
             <div id="home-page" class="page active">
                 <div class="app-header">
-                    <h1><i class="fas fa-industry"></i> 生产统计</h1>
+                    <h1><i class="fas fa-industry"></i> 生产统计 <span id="currentTime" class="current-time"></span></h1>
                     <div class="header-actions">
-                        <button id="refreshBtn" class="btn btn-sm btn-outline"><i class="fas fa-sync-alt"></i></button>
+                        <button id="refreshBtn" class="btn btn-sm btn-outline"><i class="fas fa-sync-alt"></i> 刷新</button>
                     </div>
                 </div>
                 
@@ -735,25 +958,36 @@
                             </div>
                             
                             <div class="form-group">
-                                <label for="workTime">生产时间</label>
-                                <div class="time-input-group">
-                                    <input type="time" id="workTime" class="form-control" value="" required>
-                                    <button type="button" id="setCurrentTimeBtn" class="btn btn-sm btn-outline">当前时间</button>
+                                <label for="productName">产品名称</label>
+                                <div class="product-name-group">
+                                    <input type="text" id="productName" class="form-control" placeholder="请输入产品名称" required>
+                                    <button type="button" id="confirmProductBtn" class="btn btn-sm">确定</button>
+                                    <button type="button" id="modifyProductBtn" class="btn btn-sm btn-outline" style="display: none;">修改</button>
                                 </div>
                             </div>
                             
                             <div class="form-group">
-                                <label for="workContent">生产内容</label>
-                                <input type="text" id="workContent" class="form-control" placeholder="请输入生产内容" required>
+                                <label for="plannedQuantity">模切数量</label>
+                                <input type="number" id="plannedQuantity" class="form-control" placeholder="输入模切数量" min="0" required>
                             </div>
                             
                             <div class="form-group">
-                                <label for="workOutput">生产产量</label>
-                                <input type="number" id="workOutput" class="form-control" placeholder="输入本次生产产量" min="0" required>
+                                <label for="adjustmentHours">机器调整时间（小时）</label>
+                                <input type="number" id="adjustmentHours" class="form-control" value="0.25" min="0" step="0.01" required>
                             </div>
                             
                             <div class="form-group">
-                                <label>当日累计产量</label>
+                                <label for="startTime">机器开机时间</label>
+                                <input type="time" id="startTime" class="form-control" value="" required readonly>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="endTime">完成时间</label>
+                                <input type="time" id="endTime" class="form-control" value="" required>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label>当日累计完成数量</label>
                                 <input type="text" id="completed" class="form-control" readonly>
                                 <div class="progress-container">
                                     <div id="progressBar" class="progress-bar" style="width: 0%">0%</div>
@@ -779,12 +1013,32 @@
                         <div class="stat-card">
                             <i class="fas fa-boxes"></i>
                             <h3 id="totalOutput">0</h3>
-                            <p>今日产量</p>
+                            <p>今日完成量</p>
                         </div>
                         <div class="stat-card">
                             <i class="fas fa-balance-scale"></i>
                             <h3 id="totalDifference">0</h3>
                             <p>目标差异</p>
+                        </div>
+                    </div>
+                    
+                    <!-- 加班时间信息卡片 -->
+                    <div class="card">
+                        <h2><i class="fas fa-clock"></i> 加班时间</h2>
+                        <div class="overtime-info">
+                            <h3><i class="fas fa-business-time"></i> 今日工作时间详情</h3>
+                            <div class="overtime-details">
+                                <span>标准工作时间:</span>
+                                <span>8小时</span>
+                            </div>
+                            <div class="overtime-details">
+                                <span>实际工作时间:</span>
+                                <span id="actualHours">0小时</span>
+                            </div>
+                            <div class="overtime-details">
+                                <span>加班时间:</span>
+                                <span id="overtimeHours" class="overtime-value">0小时</span>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -804,7 +1058,7 @@
                         <thead>
                             <tr>
                                 <th>日期</th>
-                                <th>产量</th>
+                                <th>完成数量</th>
                                 <th>差异</th>
                                 <th>操作</th>
                             </tr>
@@ -827,50 +1081,12 @@
                     <div class="backup-section">
                         <div class="backup-actions">
                             <button id="exportBtn" class="btn btn-sm"><i class="fas fa-file-excel"></i> 导出数据</button>
-                            <button id="clearBtn" class="btn btn-sm" style="background: #ffebee; color: #d32f2f;">
+                            <button id="clearBtn" class="btn btn-sm" style="background: #fff5f5; color: #ff5252; border: 1px solid #ffe2e2;">
                                 <i class="fas fa-trash-alt"></i> 清空数据
                             </button>
                             <button id="backupBtn" class="btn btn-sm btn-outline"><i class="fas fa-copy"></i> 创建备份</button>
                             <button id="restoreBtn" class="btn btn-sm btn-outline"><i class="fas fa-undo"></i> 恢复备份</button>
                         </div>
-                        
-                        <!-- 存储信息卡片 -->
-                        <div class="storage-info">
-                            <h3><i class="fas fa-hdd"></i> 本地存储使用情况</h3>
-                            <div class="storage-progress">
-                                <div id="storageProgressBar" class="storage-progress-bar" style="width: 0%"></div>
-                            </div>
-                            <div class="storage-details">
-                                <span id="storageUsed">已用: 0 GB</span>
-                                <span id="storageTotal">可用: 计算中...</span>
-                                <span id="storagePercent">0%</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                
-                <!-- 数据同步卡片 -->
-                <div class="card">
-                    <h2><i class="fas fa-sync-alt"></i> 数据同步</h2>
-                    <div class="form-group">
-                        <label for="syncKey">同步密钥</label>
-                        <input type="password" id="syncKey" class="form-control" placeholder="输入同步密钥">
-                        <small class="text-muted">所有设备使用相同密钥才能同步数据</small>
-                    </div>
-                    <div class="form-group">
-                        <label for="githubRepo">GitHub仓库</label>
-                        <input type="text" id="githubRepo" class="form-control" placeholder="username/repo" value="production-stats">
-                    </div>
-                    <button id="saveSyncBtn" class="btn"><i class="fas fa-save"></i> 保存同步设置</button>
-                    <button id="syncNowBtn" class="btn btn-outline" style="margin-top: 10px;">
-                        <i class="fas fa-sync"></i> 立即同步
-                    </button>
-                    <div id="syncStatus" class="sync-status sync-info">
-                        同步状态: 未配置同步密钥
-                    </div>
-                    <div class="sync-details" style="margin-top: 10px; font-size: 0.8rem; color: var(--light-text);">
-                        <div>最后同步时间: <span id="lastSyncTime">从未同步</span></div>
-                        <div>同步记录数: <span id="syncRecordCount">0</span></div>
                     </div>
                 </div>
                 
@@ -907,195 +1123,374 @@
     </div>
 
     <script>
-        // 配置常量
-        const SYNC_INTERVAL = 60000; // 60秒同步一次
-        const MAX_RETRY_ATTEMPTS = 3;
-        const RETRY_DELAY = 2000; // 2秒重试延迟
-        const SYNC_DEBOUNCE = 5000; // 5秒防抖时间
-        const DEFAULT_REPO = 'wudixiugou/data'; // 默认仓库名
-        
         // 全局变量
-        let syncTimer = null;
-        let syncKey = localStorage.getItem('syncKey') || '';
-        let githubRepo = localStorage.getItem('githubRepo') || DEFAULT_REPO;
-        let offlineQueue = JSON.parse(localStorage.getItem('offlineQueue')) || [];
-        let isSyncing = false;
+        let currentTimeInterval = null;
+        const DATA_VERSION = 3; // 更新数据版本
+        let startupTimeout = null;
+        let forceContinue = false;
+        const STORAGE_LIMIT = 100 * 1024 * 1024; // 100MB存储限制
+        let productLocked = false;
         
         // 初始化应用
         document.addEventListener('DOMContentLoaded', function() {
-            // 先隐藏启动画面，避免长时间显示
+            // 更新启动状态
+            updateSplashStatus('正在初始化系统', 10);
+            
+            // 添加强制继续按钮
+            document.getElementById('force-continue-btn').addEventListener('click', function() {
+                forceContinue = true;
+                hideSplashScreen();
+                initApp();
+            });
+            
+            // 设置超时机制 - 确保启动画面不会永久显示
+            startupTimeout = setTimeout(() => {
+                document.getElementById('force-continue-btn').style.display = 'block';
+                showNotification('启动时间较长，您可以强制进入应用', 'warning');
+                updateSplashStatus('启动时间较长，请稍候或点击"继续进入应用"', 90);
+            }, 5000); // 5秒后显示强制继续按钮
+            
+            // 执行数据迁移和应用初始化
             setTimeout(() => {
-                document.getElementById('splash-screen').style.opacity = '0';
-                setTimeout(() => {
-                    document.getElementById('splash-screen').style.display = 'none';
-                }, 300);
-            }, 300);
-            
-            // 初始化同步指示器
-            updateSyncIndicator();
-            
-            // 检查网络状态
-            window.addEventListener('online', handleNetworkChange);
-            window.addEventListener('offline', handleNetworkChange);
-            updateOnlineStatus();
-            
-            // 初始化数据（异步执行）
-            setTimeout(() => {
-                initData();
-                
-                // 设置当前日期和时间
-                const today = new Date().toISOString().split('T')[0];
-                document.getElementById('workDate').value = today;
-                setCurrentTime();
-                
-                // 设置当前时间按钮
-                document.getElementById('setCurrentTimeBtn').addEventListener('click', setCurrentTime);
-                
-                // 页面导航
-                setupNavigation();
-                
-                // 表单提交
-                document.getElementById('workForm').addEventListener('submit', function(e) {
-                    e.preventDefault();
-                    saveWorkRecord();
-                });
-                
-                // 刷新按钮
-                document.getElementById('refreshBtn').addEventListener('click', function() {
-                    updateDailyStats();
-                });
-                
-                // 保存设置
-                document.getElementById('saveSettingsBtn').addEventListener('click', saveSettings);
-                
-                // 数据导出和清空
-                document.getElementById('exportBtn').addEventListener('click', exportData);
-                document.getElementById('clearBtn').addEventListener('click', clearData);
-                document.getElementById('exportHistoryBtn').addEventListener('click', exportHistoryToExcel);
-                document.getElementById('backupBtn').addEventListener('click', createBackup);
-                document.getElementById('restoreBtn').addEventListener('click', restoreBackup);
-                
-                // 同步设置
-                document.getElementById('syncKey').value = syncKey;
-                document.getElementById('githubRepo').value = githubRepo;
-                document.getElementById('saveSyncBtn').addEventListener('click', saveSyncSettings);
-                document.getElementById('syncNowBtn').addEventListener('click', manualSync);
-                
-                // 初始加载数据（分步执行）
-                setTimeout(() => {
-                    updateDailyStats();
-                    setTimeout(() => {
-                        loadHistory();
-                        setTimeout(() => {
-                            updateStorageInfo();
-                            // 检查是否有同步密钥
-                            if (syncKey) {
-                                startSync();
-                            }
+                try {
+                    // 确保数据初始化
+                    initData();
+                    
+                    // 执行数据迁移
+                    migrateData()
+                        .then(() => {
+                            if (forceContinue) return;
                             
-                            // 处理离线队列
-                            if (offlineQueue.length > 0 && navigator.onLine) {
-                                processOfflineQueue();
-                            }
-                        }, 100);
-                    }, 100);
-                }, 100);
-            }, 100);
+                            // 初始化应用
+                            initApp();
+                            
+                            // 隐藏启动画面
+                            hideSplashScreen();
+                            
+                            // 清除超时定时器
+                            clearTimeout(startupTimeout);
+                        })
+                        .catch(e => {
+                            console.error('数据迁移失败:', e);
+                            updateSplashStatus('数据迁移失败: ' + e.message, 100);
+                            
+                            // 5秒后强制进入应用
+                            setTimeout(() => {
+                                hideSplashScreen();
+                                initApp();
+                            }, 3000);
+                        });
+                } catch (e) {
+                    console.error('启动过程中出错:', e);
+                    updateSplashStatus('启动失败: ' + e.message, 100);
+                    
+                    // 5秒后强制进入应用
+                    setTimeout(() => {
+                        hideSplashScreen();
+                        initApp();
+                    }, 3000);
+                }
+            }, 300);
         });
-
-        // 网络状态变化处理
-        function handleNetworkChange() {
-            updateOnlineStatus();
-            
-            if (navigator.onLine) {
-                // 网络恢复时处理离线队列
-                if (offlineQueue.length > 0) {
-                    processOfflineQueue();
-                }
-                
-                // 如果配置了同步密钥，启动同步
-                if (syncKey) {
-                    startSync();
-                }
-            } else {
-                // 离线时停止同步
-                if (syncTimer) {
-                    clearInterval(syncTimer);
-                    syncTimer = null;
-                }
-            }
-        }
-
-        // 更新存储信息
-        function updateStorageInfo() {
-            try {
-                // 计算已用存储空间
-                const data = localStorage.getItem('productionData') || '';
-                const usedBytes = data.length;
-                const usedGB = (usedBytes / (1024 * 1024 * 1024)).toFixed(4); // 转换为GB
-                
-                // 使用现代浏览器的Storage API检测总存储空间
-                if (navigator.storage && navigator.storage.estimate) {
-                    navigator.storage.estimate().then(estimate => {
-                        const totalBytes = estimate.quota;
-                        const totalGB = (totalBytes / (1024 * 1024 * 1024)).toFixed(2); // 转换为GB
-                        const percent = Math.min(100, (usedBytes / totalBytes * 100).toFixed(2));
-                        
-                        updateStorageUI(usedGB, totalGB, percent);
-                    }).catch(() => {
-                        // 如果API调用失败，使用默认值
-                        const totalGB = 0.005; // 5MB = 0.005GB
-                        const percent = Math.min(100, (usedBytes / (5 * 1024 * 1024) * 100).toFixed(2));
-                        updateStorageUI(usedGB, totalGB, percent);
-                    });
-                } else {
-                    // 传统浏览器使用默认值
-                    const totalGB = 0.005; // 5MB = 0.005GB
-                    const percent = Math.min(100, (usedBytes / (5 * 1024 * 1024) * 100).toFixed(2));
-                    updateStorageUI(usedGB, totalGB, percent);
-                }
-            } catch (e) {
-                console.error('更新存储信息失败:', e);
+        
+        // 更新启动画面状态
+        function updateSplashStatus(message, progress) {
+            document.getElementById('splash-status').textContent = message;
+            document.getElementById('splash-message').textContent = message;
+            if (progress !== undefined) {
+                document.getElementById('splash-progress-bar').style.width = progress + '%';
             }
         }
         
-        // 更新存储UI
-        function updateStorageUI(usedGB, totalGB, percent) {
-            document.getElementById('storageUsed').textContent = `已用: ${usedGB} GB`;
-            document.getElementById('storageTotal').textContent = `可用: ${totalGB} GB`;
-            document.getElementById('storagePercent').textContent = `${percent}%`;
-            document.getElementById('storageProgressBar').style.width = `${percent}%`;
-            
-            // 根据使用量改变颜色
-            const progressBar = document.getElementById('storageProgressBar');
-            if (percent > 90) {
-                progressBar.style.background = '#f44336'; // 红色
-            } else if (percent > 70) {
-                progressBar.style.background = '#ff9800'; // 橙色
-            } else {
-                progressBar.style.background = 'linear-gradient(90deg, var(--primary-color), var(--secondary-color))';
+        // 隐藏启动画面
+        function hideSplashScreen() {
+            document.getElementById('splash-screen').style.opacity = '0';
+            setTimeout(() => {
+                document.getElementById('splash-screen').style.display = 'none';
+            }, 500);
+        }
+        
+        // 初始化本地存储数据
+        function initData() {
+            if (!localStorage.getItem('productionData')) {
+                localStorage.setItem('productionData', JSON.stringify({
+                    _version: DATA_VERSION,
+                    settings: {
+                        dailyTarget: 50000,
+                        dailyHours: 8
+                    },
+                    records: []
+                }));
             }
         }
-
+        
+        // 数据迁移函数 - 确保旧数据兼容新版本
+        function migrateData() {
+            return new Promise((resolve, reject) => {
+                updateSplashStatus('检查数据兼容性', 20);
+                
+                // 检查是否存在旧版本数据
+                const oldData = localStorage.getItem('productionData');
+                
+                if (!oldData) {
+                    updateSplashStatus('未发现旧数据', 40);
+                    resolve();
+                    return;
+                }
+                
+                try {
+                    updateSplashStatus('解析旧数据', 30);
+                    const parsedData = JSON.parse(oldData);
+                    
+                    // 检查是否需要迁移
+                    if (!parsedData._version || parsedData._version < DATA_VERSION) {
+                        updateSplashStatus('迁移旧数据到新格式', 50);
+                        
+                        // 执行迁移逻辑
+                        const migratedData = migrateToV3(parsedData);
+                        
+                        // 保存迁移后的数据
+                        localStorage.setItem('productionData', JSON.stringify(migratedData));
+                        
+                        updateSplashStatus('数据迁移成功', 80);
+                        resolve();
+                    } else {
+                        updateSplashStatus('数据已是最新版本', 60);
+                        resolve();
+                    }
+                } catch (e) {
+                    console.error('数据迁移失败:', e);
+                    reject(new Error('数据迁移失败: ' + e.message));
+                }
+            });
+        }
+        
+        // 迁移到版本3的数据格式 - 支持新字段
+        function migrateToV3(oldData) {
+            const newData = {
+                _version: DATA_VERSION,
+                settings: oldData.settings || { dailyTarget: 50000, dailyHours: 8 },
+                records: []
+            };
+            
+            // 迁移记录数据
+            if (oldData.records && Array.isArray(oldData.records)) {
+                // 仅迁移前1000条记录，避免性能问题
+                const recordsToMigrate = oldData.records.slice(0, 1000);
+                
+                recordsToMigrate.forEach(record => {
+                    // 确保每个记录都有唯一ID
+                    if (!record.id) {
+                        record.id = Date.now() + Math.floor(Math.random() * 1000);
+                    }
+                    
+                    // 确保每个记录都有时间戳
+                    if (!record.timestamp && record.date && record.time) {
+                        try {
+                            const [year, month, day] = record.date.split('-');
+                            const [hours, minutes] = record.time.split(':');
+                            const dateObj = new Date(year, month-1, day, hours, minutes);
+                            record.timestamp = dateObj.getTime();
+                        } catch (e) {
+                            // 使用当前时间作为回退
+                            record.timestamp = Date.now();
+                        }
+                    } else if (!record.timestamp) {
+                        // 如果无法获取时间，使用当前时间
+                        record.timestamp = Date.now();
+                    }
+                    
+                    // 迁移到新字段结构
+                    const migratedRecord = {
+                        id: record.id,
+                        timestamp: record.timestamp,
+                        date: record.date || new Date(record.timestamp).toISOString().split('T')[0],
+                        startTime: record.startTime || record.time || formatTime(new Date(record.timestamp)),
+                        endTime: record.endTime || formatTime(new Date(record.timestamp + 3600000)), // 默认1小时后
+                        productName: record.productName || record.content || "未命名产品",
+                        plannedQuantity: record.plannedQuantity || record.output || 0,
+                        finishedQuantity: record.finishedQuantity || record.output || 0,
+                        adjustmentHours: record.adjustmentHours || 0.25
+                    };
+                    
+                    newData.records.push(migratedRecord);
+                });
+            } else if (Array.isArray(oldData)) {
+                // 处理旧版本数据格式（直接是记录数组）
+                updateSplashStatus('迁移旧版本数据格式', 60);
+                
+                // 仅迁移前1000条记录
+                const recordsToMigrate = oldData.slice(0, 1000);
+                
+                recordsToMigrate.forEach(record => {
+                    // 确保每个记录都有唯一ID
+                    if (!record.id) {
+                        record.id = Date.now() + Math.floor(Math.random() * 1000);
+                    }
+                    
+                    // 确保每个记录都有时间戳
+                    if (!record.timestamp && record.date && record.time) {
+                        try {
+                            const [year, month, day] = record.date.split('-');
+                            const [hours, minutes] = record.time.split(':');
+                            const dateObj = new Date(year, month-1, day, hours, minutes);
+                            record.timestamp = dateObj.getTime();
+                        } catch (e) {
+                            // 使用当前时间作为回退
+                            record.timestamp = Date.now();
+                        }
+                    } else if (!record.timestamp) {
+                        // 如果无法获取时间，使用当前时间
+                        record.timestamp = Date.now();
+                    }
+                    
+                    // 迁移到新字段结构
+                    const migratedRecord = {
+                        id: record.id,
+                        timestamp: record.timestamp,
+                        date: record.date || new Date(record.timestamp).toISOString().split('T')[0],
+                        startTime: record.startTime || record.time || formatTime(new Date(record.timestamp)),
+                        endTime: record.endTime || formatTime(new Date(record.timestamp + 3600000)), // 默认1小时后
+                        productName: record.productName || record.content || "未命名产品",
+                        plannedQuantity: record.plannedQuantity || record.output || 0,
+                        finishedQuantity: record.finishedQuantity || record.output || 0,
+                        adjustmentHours: record.adjustmentHours || 0.25
+                    };
+                    
+                    newData.records.push(migratedRecord);
+                });
+            }
+            
+            return newData;
+        }
+        
+        // 初始化应用功能
+        function initApp() {
+            console.log('初始化应用');
+            updateSplashStatus('初始化应用界面', 90);
+            
+            // 设置当前日期和时间
+            const today = new Date().toISOString().split('T')[0];
+            document.getElementById('workDate').value = today;
+            
+            // 设置默认时间
+            updateCurrentTimeInputs();
+            
+            // 启动实时时钟
+            updateCurrentTime();
+            currentTimeInterval = setInterval(updateCurrentTime, 1000);
+            
+            // 事件监听
+            setupEventListeners();
+            
+            // 初始加载数据
+            updateDailyStats();
+            loadHistory();
+            
+            // 更新网络状态
+            updateOnlineStatus();
+            
+            updateSplashStatus('启动完成', 100);
+        }
+        
+        // 更新当前时间输入框
+        function updateCurrentTimeInputs() {
+            const now = new Date();
+            const hours = String(now.getHours()).padStart(2, '0');
+            const minutes = String(now.getMinutes()).padStart(2, '0');
+            
+            // 结束时间默认为当前时间+1小时
+            const endTime = new Date(now.getTime() + 3600000);
+            const endHours = String(endTime.getHours()).padStart(2, '0');
+            const endMinutes = String(endTime.getMinutes()).padStart(2, '0');
+            
+            document.getElementById('startTime').value = `${hours}:${minutes}`;
+            document.getElementById('endTime').value = `${endHours}:${endMinutes}`;
+        }
+        
+        // 更新当前时间显示
+        function updateCurrentTime() {
+            const now = new Date();
+            const hours = String(now.getHours()).padStart(2, '0');
+            const minutes = String(now.getMinutes()).padStart(2, '0');
+            const seconds = String(now.getSeconds()).padStart(2, '0');
+            document.getElementById('currentTime').textContent = `${now.getFullYear()}-${now.getMonth()+1}-${now.getDate()} ${hours}:${minutes}:${seconds}`;
+        }
+        
+        // 设置事件监听
+        function setupEventListeners() {
+            document.getElementById('workForm').addEventListener('submit', function(e) {
+                e.preventDefault();
+                saveWorkRecord();
+            });
+            
+            document.getElementById('refreshBtn').addEventListener('click', function() {
+                updateDailyStats();
+                showNotification('数据已刷新', 'info');
+            });
+            
+            document.getElementById('saveSettingsBtn').addEventListener('click', saveSettings);
+            document.getElementById('exportBtn').addEventListener('click', exportData);
+            document.getElementById('clearBtn').addEventListener('click', clearData);
+            document.getElementById('exportHistoryBtn').addEventListener('click', exportHistoryToExcel);
+            document.getElementById('backupBtn').addEventListener('click', createBackup);
+            document.getElementById('restoreBtn').addEventListener('click', restoreBackup);
+            
+            // 产品名称确认按钮
+            document.getElementById('confirmProductBtn').addEventListener('click', function() {
+                const productName = document.getElementById('productName').value;
+                if (!productName) {
+                    showNotification('请输入产品名称', 'error');
+                    return;
+                }
+                
+                productLocked = true;
+                document.getElementById('productName').readOnly = true;
+                document.getElementById('confirmProductBtn').style.display = 'none';
+                document.getElementById('modifyProductBtn').style.display = 'block';
+                document.getElementById('startTime').readOnly = true;
+                
+                // 更新开机时间为当前时间
+                updateCurrentTimeInputs();
+                
+                showNotification('产品名称已确认');
+            });
+            
+            // 产品名称修改按钮
+            document.getElementById('modifyProductBtn').addEventListener('click', function() {
+                productLocked = false;
+                document.getElementById('productName').readOnly = false;
+                document.getElementById('confirmProductBtn').style.display = 'block';
+                document.getElementById('modifyProductBtn').style.display = 'none';
+                document.getElementById('startTime').readOnly = false;
+                
+                showNotification('可以修改产品名称', 'info');
+            });
+            
+            // 添加日期变更事件监听
+            document.getElementById('workDate').addEventListener('change', function() {
+                updateDailyStats();
+            });
+            
+            // 页面导航
+            setupNavigation();
+            
+            // 网络状态监听
+            window.addEventListener('online', updateOnlineStatus);
+            window.addEventListener('offline', updateOnlineStatus);
+        }
+        
         // 显示通知
         function showNotification(message, type = 'success') {
             const notification = document.getElementById('notification');
             notification.textContent = message;
             
-            // 根据类型设置背景色
+            // 设置通知类型
             notification.className = '';
-            if (type === 'success') {
-                notification.style.backgroundColor = '#4CAF50';
-            } else if (type === 'error') {
-                notification.style.backgroundColor = '#F44336';
-            } else if (type === 'warning') {
-                notification.style.backgroundColor = '#FF9800';
-            } else {
-                notification.style.backgroundColor = '#2196F3';
-            }
-            
+            notification.classList.add(type);
             notification.classList.add('show');
             
+            // 自动隐藏
             setTimeout(() => {
                 notification.classList.remove('show');
             }, 3000);
@@ -1111,507 +1506,44 @@
             }
         }
         
-        // 更新同步指示器
-        function updateSyncIndicator() {
-            const indicator = document.getElementById('sync-indicator');
-            
-            if (!syncKey) {
-                indicator.className = 'error';
-                indicator.title = '同步未配置';
-                return;
-            }
-            
-            if (isSyncing) {
-                indicator.className = 'syncing';
-                indicator.title = '同步中...';
-            } else if (navigator.onLine) {
-                indicator.className = '';
-                indicator.title = '同步已激活';
-            } else {
-                indicator.className = 'error';
-                indicator.title = '离线状态 - 同步暂停';
-            }
-        }
-        
-        // 初始化本地存储数据
-        function initData() {
-            if (!localStorage.getItem('productionData')) {
-                localStorage.setItem('productionData', JSON.stringify({
-                    _version: Date.now(),
-                    _lastSync: null,
-                    settings: {
-                        dailyTarget: 50000,
-                        dailyHours: 8
-                    },
-                    records: []
-                }));
-            }
-        }
-        
         // 获取存储的数据
         function getData() {
-            const data = JSON.parse(localStorage.getItem('productionData'));
-            
-            // 确保数据有版本信息
-            if (!data._version) {
-                data._version = Date.now();
-                data._lastSync = null;
-                saveData(data);
+            const dataStr = localStorage.getItem('productionData');
+            if (!dataStr) {
+                initData();
+                return JSON.parse(localStorage.getItem('productionData'));
             }
             
-            return data;
+            try {
+                return JSON.parse(dataStr);
+            } catch (e) {
+                console.error('解析数据失败，重置数据', e);
+                initData();
+                return JSON.parse(localStorage.getItem('productionData'));
+            }
         }
         
         // 保存数据到本地存储
         function saveData(data) {
-            // 更新版本和时间戳
-            data._version = Date.now();
-            data._lastSync = data._lastSync || null;
-            
-            localStorage.setItem('productionData', JSON.stringify(data));
-            updateStorageInfo();
-            
-            // 更新最后同步时间显示
-            if (data._lastSync) {
-                document.getElementById('lastSyncTime').textContent = new Date(data._lastSync).toLocaleString();
-            }
-            
-            // 更新同步记录数
-            document.getElementById('syncRecordCount').textContent = data.records.length;
-            
-            // 如果有同步密钥，尝试同步
-            if (syncKey && navigator.onLine) {
-                syncData();
-            } else if (!navigator.onLine) {
-                // 离线时添加到队列
-                offlineQueue.push({
-                    type: 'save',
-                    timestamp: Date.now()
-                });
-                localStorage.setItem('offlineQueue', JSON.stringify(offlineQueue));
-            }
-        }
-        
-        // 处理离线队列
-        function processOfflineQueue() {
-            if (offlineQueue.length === 0 || !navigator.onLine) return;
-            
-            // 处理队列中的每个操作
-            while (offlineQueue.length > 0) {
-                const operation = offlineQueue.shift();
-                
-                switch (operation.type) {
-                    case 'save':
-                        // 离线时的保存操作，现在可以同步了
-                        if (syncKey) {
-                            syncData();
-                        }
-                        break;
-                    // 可以添加其他类型的操作
-                }
-            }
-            
-            localStorage.setItem('offlineQueue', JSON.stringify(offlineQueue));
-        }
-        
-        // 保存同步设置
-        function saveSyncSettings() {
-            const newKey = document.getElementById('syncKey').value.trim();
-            const newRepo = document.getElementById('githubRepo').value.trim();
-            
-            if (!newKey) {
-                showNotification('请输入同步密钥', 'error');
-                return;
-            }
-            
-            if (!newRepo.includes('/')) {
-                showNotification('GitHub仓库格式应为: username/repo', 'error');
-                return;
-            }
-            
-            syncKey = newKey;
-            githubRepo = newRepo;
-            
-            localStorage.setItem('syncKey', syncKey);
-            localStorage.setItem('githubRepo', githubRepo);
-            
-            // 更新同步指示器
-            updateSyncIndicator();
-            
-            // 启动同步
-            startSync();
-            showNotification('同步设置已保存');
-        }
-        
-        // 启动自动同步
-        function startSync() {
-            if (!navigator.onLine) {
-                updateSyncStatus('离线状态 - 同步暂停', 'error');
-                return;
-            }
-            
-            if (syncTimer) clearInterval(syncTimer);
-            
-            // 立即同步一次
-            syncData();
-            
-            // 设置定时同步
-            syncTimer = setInterval(syncData, SYNC_INTERVAL);
-            
-            updateSyncStatus('自动同步已启动，每60秒同步一次', 'info');
-        }
-        
-        // 手动同步
-        function manualSync() {
-            if (!navigator.onLine) {
-                showNotification('当前处于离线状态，无法同步', 'error');
-                return;
-            }
-            
-            syncData(true);
-        }
-        
-        // 同步数据
-        async function syncData(manual = false) {
-            if (!syncKey || isSyncing) return;
-            
-            // 防抖处理 - 防止短时间内多次同步
-            if (this.syncDebounce) {
-                clearTimeout(this.syncDebounce);
-            }
-            
-            this.syncDebounce = setTimeout(async () => {
-                isSyncing = true;
-                updateSyncIndicator();
-                
-                try {
-                    updateSyncStatus(manual ? '正在手动同步...' : '正在自动同步...', 'info');
-                    
-                    // 1. 获取本地数据并添加版本信息
-                    const localData = getData();
-                    
-                    // 2. 尝试从GitHub获取最新数据
-                    let remoteData;
-                    let retryCount = 0;
-                    
-                    while (retryCount < MAX_RETRY_ATTEMPTS) {
-                        try {
-                            remoteData = await fetchRemoteData();
-                            break;
-                        } catch (error) {
-                            retryCount++;
-                            if (retryCount >= MAX_RETRY_ATTEMPTS) throw error;
-                            await new Promise(resolve => setTimeout(resolve, RETRY_DELAY));
-                        }
-                    }
-                    
-                    // 3. 检查冲突
-                    const conflicts = findConflicts(localData, remoteData);
-                    if (conflicts.length > 0 && manual) {
-                        // 如果是手动同步，显示冲突解决UI
-                        showConflictResolutionUI(conflicts);
-                        return;
-                    }
-                    
-                    // 4. 合并数据
-                    const mergedData = mergeData(localData, remoteData);
-                    
-                    // 5. 备份当前数据
-                    localStorage.setItem('productionData_backup', JSON.stringify(localData));
-                    
-                    // 6. 保存合并后的数据
-                    saveData(mergedData);
-                    
-                    // 7. 上传到GitHub
-                    await uploadData(mergedData);
-                    
-                    // 8. 更新UI
-                    updateDailyStats();
-                    loadHistory();
-                    
-                    updateSyncStatus('同步成功: ' + new Date().toLocaleTimeString(), 'success');
-                    
-                    if (manual) {
-                        showNotification('数据同步成功');
-                    }
-                } catch (error) {
-                    console.error('同步失败:', error);
-                    
-                    // 尝试恢复备份
-                    try {
-                        const backup = localStorage.getItem('productionData_backup');
-                        if (backup) {
-                            localStorage.setItem('productionData', backup);
-                        }
-                    } catch (e) {
-                        console.error('恢复备份失败:', e);
-                    }
-                    
-                    updateSyncStatus('同步失败: ' + error.message, 'error');
-                    
-                    if (manual) {
-                        showNotification('同步失败: ' + error.message, 'error');
-                    }
-                } finally {
-                    isSyncing = false;
-                    updateSyncIndicator();
-                }
-            }, manual ? 0 : SYNC_DEBOUNCE);
-        }
-        
-        // 从GitHub获取数据
-        async function fetchRemoteData() {
-            const url = `https://api.github.com/repos/${githubRepo}/contents/data.json?ref=${syncKey}`;
-            
-            const response = await fetch(url, {
-                headers: {
-                    'Accept': 'application/vnd.github.v3+json'
-                }
-            });
-            
-            if (!response.ok) {
-                // 如果文件不存在，返回空数据
-                if (response.status === 404) {
-                    return { 
-                        _version: 0,
-                        _lastSync: null,
-                        settings: { dailyTarget: 50000, dailyHours: 8 }, 
-                        records: [] 
-                    };
-                }
-                throw new Error('获取远程数据失败: ' + response.status);
-            }
-            
-            const result = await response.json();
-            const content = atob(result.content);
-            return JSON.parse(content);
-        }
-        
-        // 上传数据到GitHub
-        async function uploadData(data) {
-            const url = `https://api.github.com/repos/${githubRepo}/contents/data.json`;
-            const content = btoa(JSON.stringify(data, null, 2));
-            
-            // 先获取文件SHA（如果存在）
-            let sha = '';
             try {
-                const existing = await fetchRemoteData();
-                sha = existing.sha;
+                localStorage.setItem('productionData', JSON.stringify(data));
             } catch (e) {
-                console.log('无法获取现有文件的SHA，可能是第一次上传');
-            }
-            
-            const response = await fetch(url, {
-                method: 'PUT',
-                headers: {
-                    'Accept': 'application/vnd.github.v3+json',
-                    'Content-Type': 'application/json',
-                    'Authorization': `token ${syncKey}`
-                },
-                body: JSON.stringify({
-                    message: 'Update production data ' + new Date().toLocaleString(),
-                    content: content,
-                    branch: syncKey,
-                    sha: sha
-                })
-            });
-            
-            if (!response.ok) {
-                throw new Error('上传数据失败: ' + response.status);
-            }
-            
-            // 更新最后同步时间
-            const localData = getData();
-            localData._lastSync = new Date().toISOString();
-            saveData(localData);
-        }
-        
-        // 查找冲突
-        function findConflicts(local, remote) {
-            if (!remote || !remote.records) return [];
-            
-            const conflicts = [];
-            const localRecordsMap = new Map(local.records.map(r => [r.id, r]));
-            
-            remote.records.forEach(remoteRecord => {
-                const localRecord = localRecordsMap.get(remoteRecord.id);
-                if (localRecord && 
-                    localRecord.timestamp !== remoteRecord.timestamp && 
-                    (localRecord.output !== remoteRecord.output || 
-                     localRecord.content !== remoteRecord.content)) {
-                    conflicts.push({
-                        id: remoteRecord.id,
-                        date: remoteRecord.date,
-                        time: remoteRecord.time,
-                        content: remoteRecord.content,
-                        local: localRecord,
-                        remote: remoteRecord
-                    });
-                }
-            });
-            
-            return conflicts;
-        }
-        
-        // 显示冲突解决UI
-        function showConflictResolutionUI(conflicts) {
-            // 创建一个模态框显示冲突
-            const modal = document.createElement('div');
-            modal.className = 'conflict-modal';
-            
-            // 创建内容容器
-            const content = document.createElement('div');
-            content.className = 'conflict-content';
-            
-            content.innerHTML = `
-                <h2 style="color: var(--primary-color); margin-bottom: 15px;">数据冲突</h2>
-                <p>发现 ${conflicts.length} 条冲突记录，请选择要保留的版本：</p>
-                <div id="conflictList" style="margin: 15px 0; max-height: 300px; overflow-y: auto;"></div>
-                <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 15px;">
-                    <button id="resolveKeepLocal" class="btn btn-sm">保留我的更改</button>
-                    <button id="resolveKeepRemote" class="btn btn-sm btn-outline">使用远程更改</button>
-                </div>
-            `;
-            
-            // 填充冲突列表
-            const conflictList = content.querySelector('#conflictList');
-            conflicts.forEach(conflict => {
-                const conflictItem = document.createElement('div');
-                conflictItem.className = 'conflict-item';
-                
-                conflictItem.innerHTML = `
-                    <div style="font-weight: bold; margin-bottom: 5px;">${conflict.content} (${formatDate(conflict.date)} ${conflict.time})</div>
-                    <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
-                        <div>
-                            <span style="color: var(--primary-color);">本地:</span> 
-                            ${conflict.local.output} 件 (${new Date(conflict.local.timestamp).toLocaleString()})
-                        </div>
-                        <div>
-                            <span style="color: var(--secondary-color);">远程:</span> 
-                            ${conflict.remote.output} 件 (${new Date(conflict.remote.timestamp).toLocaleString()})
-                        </div>
-                    </div>
-                `;
-                
-                conflictList.appendChild(conflictItem);
-            });
-            
-            modal.appendChild(content);
-            document.body.appendChild(modal);
-            
-            // 添加事件监听器
-            content.querySelector('#resolveKeepLocal').addEventListener('click', () => {
-                document.body.removeChild(modal);
-                resolveConflicts(conflicts, 'local');
-            });
-            
-            content.querySelector('#resolveKeepRemote').addEventListener('click', () => {
-                document.body.removeChild(modal);
-                resolveConflicts(conflicts, 'remote');
-            });
-        }
-        
-        // 解决冲突
-        function resolveConflicts(conflicts, resolution) {
-            const data = getData();
-            const recordsMap = new Map(data.records.map(r => [r.id, r]));
-            
-            conflicts.forEach(conflict => {
-                if (resolution === 'local') {
-                    // 保留本地版本，无需修改
-                } else {
-                    // 使用远程版本
-                    recordsMap.set(conflict.id, conflict.remote);
-                }
-            });
-            
-            // 更新数据
-            data.records = Array.from(recordsMap.values());
-            saveData(data);
-            
-            // 重新同步
-            syncData(true);
-        }
-        
-        // 合并数据
-        function mergeData(local, remote) {
-            if (!remote || !remote.records) return local;
-            
-            // 合并设置 - 以本地设置为准
-            const settings = local.settings || remote.settings || { dailyTarget: 50000, dailyHours: 8 };
-            
-            // 创建记录映射
-            const recordMap = new Map();
-            
-            // 先添加远程记录
-            (remote.records || []).forEach(record => {
-                recordMap.set(record.id, record);
-            });
-            
-            // 再添加或更新本地记录（本地记录优先级更高）
-            (local.records || []).forEach(record => {
-                const existing = recordMap.get(record.id);
-                if (!existing || record.timestamp > existing.timestamp) {
-                    recordMap.set(record.id, record);
-                }
-            });
-            
-            // 转换为数组并排序
-            const mergedRecords = Array.from(recordMap.values());
-            mergedRecords.sort((a, b) => a.timestamp - b.timestamp);
-            
-            return {
-                _version: Date.now(), // 新版本号
-                _lastSync: new Date().toISOString(),
-                settings: settings,
-                records: mergedRecords
-            };
-        }
-        
-        // 更新同步状态
-        function updateSyncStatus(message, type = 'info') {
-            const statusElement = document.getElementById('syncStatus');
-            if (statusElement) {
-                statusElement.textContent = '同步状态: ' + message;
-                statusElement.className = 'sync-status';
-                
-                switch (type) {
-                    case 'success':
-                        statusElement.classList.add('sync-success');
-                        break;
-                    case 'error':
-                        statusElement.classList.add('sync-error');
-                        break;
-                    default:
-                        statusElement.classList.add('sync-info');
-                }
+                console.error('保存数据失败:', e);
+                showNotification('保存数据失败，请检查存储空间', 'error');
             }
         }
         
-        // 创建数据备份
-        function createBackup() {
-            const data = getData();
-            localStorage.setItem('productionData_backup', JSON.stringify(data));
-            showNotification('数据备份已创建');
-        }
-        
-        // 恢复数据备份
-        function restoreBackup() {
-            const backup = localStorage.getItem('productionData_backup');
-            if (!backup) {
-                showNotification('没有找到备份数据', 'error');
-                return;
-            }
+        // 格式化字节为最佳单位
+        function formatBytes(bytes, decimals = 2) {
+            if (bytes === 0) return '0 Bytes';
             
-            if (confirm('确定要恢复备份数据吗？当前数据将被覆盖。')) {
-                localStorage.setItem('productionData', backup);
-                showNotification('数据已从备份恢复');
-                
-                // 刷新显示
-                updateDailyStats();
-                loadHistory();
-                updateStorageInfo();
-            }
+            const k = 1024;
+            const dm = decimals < 0 ? 0 : decimals;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
         }
         
         // 设置页面导航
@@ -1648,68 +1580,101 @@
         // 切换页面
         function switchPage(pageId) {
             const pages = document.querySelectorAll('.page');
-            pages.forEach(page => page.classList.remove('active'));
+            pages.forEach(page => {
+                page.classList.remove('active');
+                page.style.opacity = 0;
+            });
             
             const activePage = document.getElementById(pageId);
             if (activePage) {
                 activePage.classList.add('active');
+                setTimeout(() => {
+                    activePage.style.opacity = 1;
+                }, 10);
                 
                 // 如果是历史页面，刷新数据
                 if (pageId === 'history-page') {
                     loadHistory();
                 }
-                
-                // 如果是设置页面，更新存储信息
-                if (pageId === 'settings-page') {
-                    updateStorageInfo();
-                }
             }
-        }
-        
-        // 设置当前时间
-        function setCurrentTime() {
-            const now = new Date();
-            const hours = String(now.getHours()).padStart(2, '0');
-            const minutes = String(now.getMinutes()).padStart(2, '0');
-            document.getElementById('workTime').value = `${hours}:${minutes}`;
         }
         
         // 保存生产记录
         function saveWorkRecord() {
             const date = document.getElementById('workDate').value;
-            const time = document.getElementById('workTime').value;
-            const content = document.getElementById('workContent').value;
-            const output = parseInt(document.getElementById('workOutput').value);
+            const productName = document.getElementById('productName').value;
+            const plannedQuantity = parseInt(document.getElementById('plannedQuantity').value);
+            const adjustmentHours = parseFloat(document.getElementById('adjustmentHours').value);
+            const startTime = document.getElementById('startTime').value;
+            const endTime = document.getElementById('endTime').value;
             
-            if (!date || !time || !content || isNaN(output)) {
+            // 验证必填字段
+            if (!date || !productName || isNaN(plannedQuantity) || 
+                isNaN(adjustmentHours) || !startTime || !endTime) {
                 showNotification('请填写完整的生产信息', 'error');
+                return;
+            }
+            
+            // 验证产品名称是否已确认
+            if (!productLocked) {
+                showNotification('请先确认产品名称', 'error');
+                return;
+            }
+            
+            // 验证调整时间
+            if (adjustmentHours < 0) {
+                showNotification('调整时间不能为负数', 'error');
+                return;
+            }
+            
+            // 验证时间顺序
+            const startParts = startTime.split(':');
+            const endParts = endTime.split(':');
+            const startDate = new Date(0, 0, 0, parseInt(startParts[0]), parseInt(startParts[1]));
+            const endDate = new Date(0, 0, 0, parseInt(endParts[0]), parseInt(endParts[1]));
+            
+            if (startDate >= endDate) {
+                showNotification('完成时间必须在开机时间之后', 'error');
                 return;
             }
             
             const data = getData();
             
-            // 创建时间戳
-            const [hours, minutes] = time.split(':');
+            // 创建时间戳（使用开机时间）
+            const [hours, minutes] = startTime.split(':');
             const recordDate = new Date(date);
             recordDate.setHours(parseInt(hours));
             recordDate.setMinutes(parseInt(minutes));
             
-            // 添加新记录
-            data.records.push({
+            // 创建新记录
+            const newRecord = {
                 date,
-                time,
-                content,
-                output,
+                startTime,
+                endTime,
+                productName,
+                plannedQuantity,
+                finishedQuantity: plannedQuantity, // 完成数量等于模切数量
+                adjustmentHours,
                 timestamp: recordDate.getTime(),
-                id: Date.now() // 为每条记录添加唯一ID
-            });
+                id: Date.now() + Math.floor(Math.random() * 1000) // 更安全的ID生成
+            };
             
+            // 添加新记录
+            data.records.push(newRecord);
             saveData(data);
             
             // 重置表单
-            document.getElementById('workContent').value = '';
-            document.getElementById('workOutput').value = '';
-            setCurrentTime();
+            document.getElementById('productName').value = '';
+            document.getElementById('productName').readOnly = false;
+            document.getElementById('confirmProductBtn').style.display = 'block';
+            document.getElementById('modifyProductBtn').style.display = 'none';
+            document.getElementById('startTime').readOnly = false;
+            document.getElementById('plannedQuantity').value = '';
+            document.getElementById('adjustmentHours').value = '0.25';
+            productLocked = false;
+            
+            // 设置默认时间
+            updateCurrentTimeInputs();
             
             // 更新统计
             updateDailyStats();
@@ -1719,28 +1684,52 @@
         
         // 更新当日统计
         function updateDailyStats() {
-            const today = new Date().toISOString().split('T')[0];
+            const selectedDate = document.getElementById('workDate').value;
             const data = getData();
-            const todayRecords = data.records.filter(record => record.date === today);
             
-            // 计算总产量
-            const totalOutput = todayRecords.reduce((sum, record) => sum + record.output, 0);
+            // 仅筛选选定日期的记录
+            const dateRecords = data.records.filter(record => record.date === selectedDate);
+            
+            // 计算总完成数量
+            const totalFinished = dateRecords.reduce((sum, record) => sum + record.finishedQuantity, 0);
             const dailyTarget = data.settings.dailyTarget;
-            const difference = totalOutput - dailyTarget;
+            const difference = totalFinished - dailyTarget;
+            
+            // 计算工作时间
+            let totalWorkHours = 0;
+            dateRecords.forEach(record => {
+                const startParts = record.startTime.split(':');
+                const endParts = record.endTime.split(':');
+                const startDate = new Date(0, 0, 0, parseInt(startParts[0]), parseInt(startParts[1]));
+                const endDate = new Date(0, 0, 0, parseInt(endParts[0]), parseInt(endParts[1]));
+                const diff = (endDate - startDate) / (1000 * 60 * 60); // 转换为小时
+                totalWorkHours += diff;
+            });
+            
+            // 计算加班时间
+            const standardHours = data.settings.dailyHours;
+            const overtimeHours = Math.max(0, totalWorkHours - standardHours);
             
             // 更新显示
-            document.getElementById('totalOutput').textContent = totalOutput.toLocaleString();
+            document.getElementById('totalOutput').textContent = totalFinished.toLocaleString();
             document.getElementById('totalDifference').textContent = difference.toLocaleString();
+            document.getElementById('actualHours').textContent = totalWorkHours.toFixed(2) + '小时';
+            document.getElementById('overtimeHours').textContent = overtimeHours.toFixed(2) + '小时';
             
             // 更新进度条
-            const progressPercentage = Math.min(Math.round((totalOutput / dailyTarget) * 100), 100);
+            const progressPercentage = Math.min(Math.round((totalFinished / dailyTarget) * 100), 100);
             const progressBar = document.getElementById('progressBar');
             progressBar.style.width = `${progressPercentage}%`;
             progressBar.textContent = `${progressPercentage}%`;
             
             // 更新完成状态
             const completionStatus = document.getElementById('completionStatus');
-            completionStatus.textContent = `今日进度: ${totalOutput.toLocaleString()}/${dailyTarget.toLocaleString()} (${progressPercentage}%)`;
+            const displayDate = new Date(selectedDate).toLocaleDateString('zh-CN', {
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit'
+            });
+            completionStatus.textContent = `${displayDate}进度: ${totalFinished.toLocaleString()}/${dailyTarget.toLocaleString()} (${progressPercentage}%)`;
             
             // 根据差异设置样式
             if (difference > 0) {
@@ -1754,8 +1743,8 @@
                 document.getElementById('totalDifference').className = 'target-met';
             }
             
-            // 更新累计产量显示
-            document.getElementById('completed').value = totalOutput.toLocaleString();
+            // 更新累计完成数量显示
+            document.getElementById('completed').value = totalFinished.toLocaleString();
             
             // 更新设置显示
             document.getElementById('dailyTargetDisplay').textContent = dailyTarget.toLocaleString();
@@ -1772,7 +1761,7 @@
                 historyTable.innerHTML = '';
                 
                 // 如果没有记录，显示空状态
-                if (data.records.length === 0) {
+                if (!data.records || data.records.length === 0) {
                     const emptyRow = document.createElement('tr');
                     emptyRow.innerHTML = `
                         <td colspan="4" style="text-align: center; padding: 30px;">
@@ -1789,37 +1778,39 @@
                 // 按日期分组
                 const recordsByDate = {};
                 data.records.forEach(record => {
-                    if (!recordsByDate[record.date]) {
-                        recordsByDate[record.date] = [];
+                    const recordDate = record.date || '未知日期';
+                    
+                    if (!recordsByDate[recordDate]) {
+                        recordsByDate[recordDate] = [];
                     }
-                    recordsByDate[record.date].push(record);
+                    recordsByDate[recordDate].push(record);
                 });
                 
-                // 按日期排序
+                // 按日期排序（从新到旧）
                 const sortedDates = Object.keys(recordsByDate).sort((a, b) => new Date(b) - new Date(a));
                 
-                // 填充表格
-                sortedDates.forEach(date => {
+                // 填充表格（最多显示30天记录）
+                sortedDates.slice(0, 30).forEach(date => {
                     const dateRecords = recordsByDate[date];
-                    // 按时间排序
-                    dateRecords.sort((a, b) => a.timestamp - b.timestamp);
+                    // 按时间排序（从早到晚）
+                    dateRecords.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
                     
-                    const totalOutput = dateRecords.reduce((sum, record) => sum + record.output, 0);
+                    const totalFinished = dateRecords.reduce((sum, record) => sum + record.finishedQuantity, 0);
                     const dailyTarget = data.settings.dailyTarget;
-                    const difference = totalOutput - dailyTarget;
+                    const difference = totalFinished - dailyTarget;
                     
                     // 日期行
                     const dateRow = document.createElement('tr');
                     dateRow.className = 'date-row';
                     dateRow.innerHTML = `
                         <td>${formatDate(date)}</td>
-                        <td>${totalOutput.toLocaleString()}</td>
+                        <td>${totalFinished.toLocaleString()}</td>
                         <td class="${difference > 0 ? 'over-target' : difference < 0 ? 'under-target' : 'target-met'}">
                             ${difference.toLocaleString()}
                         </td>
                         <td class="actions">
                             <button class="action-btn delete" data-date="${date}">
-                                <i class="fas fa-trash-alt"></i>
+                                <i class="fas fa-trash-alt"></i> 删除
                             </button>
                         </td>
                     `;
@@ -1835,9 +1826,11 @@
                         <table class="detail-table">
                             <thead>
                                 <tr>
-                                    <th>时间</th>
-                                    <th>生产内容</th>
-                                    <th>生产数量</th>
+                                    <th>产品名称</th>
+                                    <th>模切数量</th>
+                                    <th>调整时间(小时)</th>
+                                    <th>开机时间</th>
+                                    <th>完成时间</th>
                                     <th style="text-align: right;">操作</th>
                                 </tr>
                             </thead>
@@ -1847,9 +1840,11 @@
                     dateRecords.forEach(record => {
                         detailsHtml += `
                             <tr>
-                                <td>${record.time}</td>
-                                <td>${record.content}</td>
-                                <td>${record.output.toLocaleString()}</td>
+                                <td>${record.productName || '无名称'}</td>
+                                <td>${record.plannedQuantity.toLocaleString()}</td>
+                                <td>${record.adjustmentHours.toFixed(2)}</td>
+                                <td>${record.startTime || '未知'}</td>
+                                <td>${record.endTime || '未知'}</td>
                                 <td class="detail-actions">
                                     <button class="detail-delete-btn" data-id="${record.id}">
                                         <i class="fas fa-trash-alt"></i> 删除
@@ -1902,6 +1897,13 @@
                 console.error('加载历史记录失败:', e);
                 showNotification('加载历史记录失败', 'error');
             }
+        }
+        
+        // 格式化时间 (HH:MM)
+        function formatTime(date) {
+            const hours = String(date.getHours()).padStart(2, '0');
+            const minutes = String(date.getMinutes()).padStart(2, '0');
+            return `${hours}:${minutes}`;
         }
         
         // 根据ID删除单条记录
@@ -1980,34 +1982,33 @@
             
             // 按日期分组
             data.records.forEach(record => {
-                if (!recordsByDate[record.date]) {
-                    recordsByDate[record.date] = [];
+                const recordDate = record.date || '未知日期';
+                
+                if (!recordsByDate[recordDate]) {
+                    recordsByDate[recordDate] = [];
                 }
-                recordsByDate[record.date].push(record);
+                recordsByDate[recordDate].push(record);
             });
             
             // 准备Excel数据
             const excelData = [
-                ['日期', '时间', '生产内容', '产量', '累计产量', '目标差异']
+                ['日期', '产品名称', '模切数量', '调整时间(小时)', '开机时间', '完成时间']
             ];
             
-            // 按日期排序
-            Object.keys(recordsByDate).sort((a, b) => new Date(a) - new Date(b)).forEach(date => {
+            // 按日期排序（从新到旧）
+            Object.keys(recordsByDate).sort((a, b) => new Date(b) - new Date(a)).forEach(date => {
                 const dateRecords = recordsByDate[date];
-                // 按时间排序
-                dateRecords.sort((a, b) => a.timestamp - b.timestamp);
+                // 按时间排序（从早到晚）
+                dateRecords.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
                 
-                const totalOutput = dateRecords.reduce((sum, record) => sum + record.output, 0);
-                const difference = totalOutput - data.settings.dailyTarget;
-                
-                dateRecords.forEach((record, index) => {
+                dateRecords.forEach(record => {
                     const row = [
-                        index === 0 ? formatDate(date) : '',
-                        record.time,
-                        record.content,
-                        record.output,
-                        index === 0 ? totalOutput : '',
-                        index === 0 ? difference : ''
+                        formatDate(date),
+                        record.productName || '',
+                        record.plannedQuantity,
+                        record.adjustmentHours,
+                        record.startTime || '',
+                        record.endTime || ''
                     ];
                     excelData.push(row);
                 });
@@ -2019,7 +2020,9 @@
             XLSX.utils.book_append_sheet(wb, ws, "生产记录");
             
             // 导出Excel文件
-            XLSX.writeFile(wb, `生产统计_${new Date().toISOString().split('T')[0]}.xlsx`);
+            const exportDate = new Date().toISOString().split('T')[0];
+            XLSX.writeFile(wb, `生产统计_${exportDate}.xlsx`);
+            showNotification('数据已成功导出为Excel', 'info');
         }
         
         // 导出历史记录为Excel
@@ -2031,6 +2034,7 @@
         function clearData() {
             if (confirm('确定要清空所有数据吗？此操作不可恢复！')) {
                 localStorage.removeItem('productionData');
+                localStorage.removeItem('productionData_backup');
                 initData();
                 showNotification('数据已清空');
                 
@@ -2039,14 +2043,44 @@
                 document.getElementById('dailyHours').value = 8;
                 updateDailyStats();
                 loadHistory();
-                updateStorageInfo();
             }
         }
         
         // 格式化日期显示
         function formatDate(dateString) {
-            const date = new Date(dateString);
-            return `${date.getFullYear()}年${date.getMonth() + 1}月${date.getDate()}日`;
+            if (!dateString || dateString === '未知日期') return '未知日期';
+            
+            try {
+                const date = new Date(dateString);
+                return `${date.getFullYear()}年${date.getMonth() + 1}月${date.getDate()}日`;
+            } catch (e) {
+                return dateString; // 如果日期格式无效，返回原始字符串
+            }
+        }
+        
+        // 创建数据备份
+        function createBackup() {
+            const data = getData();
+            localStorage.setItem('productionData_backup', JSON.stringify(data));
+            showNotification('数据备份已创建');
+        }
+        
+        // 恢复数据备份
+        function restoreBackup() {
+            const backup = localStorage.getItem('productionData_backup');
+            if (!backup) {
+                showNotification('没有找到备份数据', 'error');
+                return;
+            }
+            
+            if (confirm('确定要恢复备份数据吗？当前数据将被覆盖。')) {
+                localStorage.setItem('productionData', backup);
+                showNotification('数据已从备份恢复');
+                
+                // 刷新显示
+                updateDailyStats();
+                loadHistory();
+            }
         }
     </script>
 </body>
